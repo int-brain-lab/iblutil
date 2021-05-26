@@ -1,11 +1,9 @@
-import json
-from pathlib import Path
 import unittest
 import uuid
 
 import numpy as np
 
-from iblutil.io.parquet import uuid2np, np2uuid, rec2col, np2str, str2np
+from iblutil.io.parquet import uuid2np, np2uuid, np2str, str2np
 from iblutil.numerical import intersect2d, ismember2d, ismember
 
 
