@@ -29,5 +29,4 @@ jobs:
         python -m flake8
     - name: tests
       run: |
-        cd iblutil
         python -m unittest discover
