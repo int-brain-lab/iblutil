@@ -37,5 +37,5 @@ setup(
     # external packages as dependencies
     install_requires=require,
     entry_points={},
-    scripts={},
+    scripts={}
 )

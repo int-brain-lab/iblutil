@@ -25,9 +25,9 @@ jobs:
         pip install -e .
     - name: Flake8
       run: |
-        cd iblrplate
+        cd iblutil
         python -m flake8
     - name: tests
       run: |
-        cd iblrplate
+        cd iblutil
         python -m unittest discover
