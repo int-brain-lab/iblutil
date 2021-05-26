@@ -7,8 +7,6 @@ import pyarrow.parquet as pq
 import pyarrow as pa
 import pandas as pd
 
-from one.lib.brainbox.core import Bunch
-
 
 _logger = logging.getLogger('ibllib')
 
