@@ -108,7 +108,7 @@ def find_first_2d(mat, val):
     NOTE: function historically used numba for performance purposes
     :param mat: np.array
     :param val: values to search for
-    :return: numpy.int64 index or empty list
+    :return: numpy.int64 index (numpy.int32 on Windows) or empty list
     """
     for i in np.arange(mat.shape[0]):
         if np.all(mat[i] == val):

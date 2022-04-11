@@ -1,7 +1,10 @@
+import os
 import unittest
 
-import iblutil.numerical as num
 import numpy as np
+
+import iblutil.numerical as num
+
 
 class TestFindFirst2D(unittest.TestCase):
 
@@ -12,7 +15,10 @@ class TestFindFirst2D(unittest.TestCase):
         # test with a value known to be in the array
         val = 3
         i = num.find_first_2d(mat, val)
-        self.assertTrue(isinstance(i, np.int64))
+        if os.name == 'nt':  # Windows returns different datatype for numpy
+            self.assertTrue(isinstance(i, np.int32))
+        else:
+            self.assertTrue(isinstance(i, np.int64))
 
         # test with a value known to NOT be in the array
         val = 37
