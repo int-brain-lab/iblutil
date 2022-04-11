@@ -3,6 +3,23 @@ import unittest
 import iblutil.numerical as num
 import numpy as np
 
+class TestFindFirst2D(unittest.TestCase):
+
+    def test_find_first_2d(self):
+        # array to test
+        mat = np.array([0, 1, 0, 2, 3, 2, 1])
+
+        # test with a value known to be in the array
+        val = 3
+        i = num.find_first_2d(mat, val)
+        self.assertTrue(isinstance(i, np.int64))
+
+        # test with a value known to NOT be in the array
+        val = 37
+        i = num.find_first_2d(mat, val)
+        self.assertTrue(isinstance(i, list))
+        self.assertTrue(len(i) == 0)
+
 
 class TestBetweeenSorted(unittest.TestCase):
 

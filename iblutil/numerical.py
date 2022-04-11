@@ -1,7 +1,6 @@
 from typing import TypeVar, Sequence, Union, Optional, Type
 
 import numpy as np
-from numba import jit
 
 D = TypeVar('D', bound=np.generic)
 Array = Union[np.ndarray, Sequence]
@@ -103,20 +102,18 @@ def intersect2d(a0, a1, assume_unique=False):
     return a0[i0, :], i0, i1
 
 
-@jit(nopython=True)
 def find_first_2d(mat, val):
     """
-    Returns first index where
-    The purpose of this function is performance: uses low level numba and avoids looping
-    through the full array
+    Returns first index of the value within the given numpy array
+    NOTE: function historically used numba for performance purposes
     :param mat: np.array
     :param val: values to search for
-    :return: index or empty array
+    :return: numpy.int64 index or empty list
     """
     for i in np.arange(mat.shape[0]):
         if np.all(mat[i] == val):
             return i
-
+    return []
 
 def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
                   mode: str = 'vector', dtype: Type[D] = 'int8') -> np.ndarray:
