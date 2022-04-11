@@ -115,6 +115,7 @@ def find_first_2d(mat, val):
             return i
     return []
 
+
 def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
                   mode: str = 'vector', dtype: Type[D] = 'int8') -> np.ndarray:
     """
