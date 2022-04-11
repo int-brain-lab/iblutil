@@ -1,19 +1,20 @@
-from setuptools import setup, find_packages
 import sys
 from pathlib import Path
+
+from setuptools import setup, find_packages
 
 CURRENT_DIRECTORY = Path(__file__).parent.absolute()
 
 CURRENT_PYTHON = sys.version_info[:2]
-REQUIRED_PYTHON = (3, 7)
-if CURRENT_PYTHON < REQUIRED_PYTHON:
-    sys.stderr.write("""
+REQUIRED_PYTHON = (3, 8)
+VER_ERR_MSG = """
 ==========================
 Unsupported Python version
 ==========================
-This version of iblutil requires Python {}.{}, but you're trying to
-install it on Python {}.{}.
-""".format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
+The version of this module requires Python {}.{}, but you're trying to install it on Python {}.{}.
+"""
+if CURRENT_PYTHON < REQUIRED_PYTHON:
+    sys.stderr.write(VER_ERR_MSG.format(*REQUIRED_PYTHON + CURRENT_PYTHON))
     sys.exit(1)
 
 with open("README.md", 'r') as f:
@@ -37,5 +38,5 @@ setup(
     # external packages as dependencies
     install_requires=require,
     entry_points={},
-    scripts={}
+    scripts=[]
 )
