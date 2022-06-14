@@ -3,6 +3,7 @@ from pathlib import Path, PurePath
 import sys
 import os
 import json
+import subprocess
 
 
 def as_dict(par):
@@ -45,6 +46,39 @@ def getfile(str_params):
     else:
         pfile = str(Path.home().joinpath(*parts))
     return pfile
+
+
+def set_hidden(path, hide: bool) -> Path:
+    """
+    Set a given file or folder path to be hidden.  On macOS and Windows a specific flag is set,
+    while on other systems the file or folder is simply renamed to start with a dot.  On macOS the
+    folder may only be hidden in Explorer.
+
+    Parameters
+    ----------
+    path : str, pathlib.Path
+        The path of the file or folder to (un)hide.
+    hide : bool
+        If True the path is set to hidden, otherwise it is unhidden.
+
+    Returns
+    -------
+    pathlib.Path
+        The path of the file or folder, which may have been renamed.
+    """
+    path = Path(path)
+    assert path.exists()
+    if sys.platform == 'win32' or sys.platform == 'cygwin':
+        flag = ('+' if hide else '-') + 'H'
+        subprocess.run(['attrib', flag, str(path)]).check_returncode()
+    elif sys.platform == 'darwin':
+        flag = ('' if hide else 'no') + 'hidden'
+        subprocess.run(['chflags', flag, str(path)]).check_returncode()
+    elif hide and not path.name.startswith('.'):
+        path = path.rename(path.parent.joinpath('.' + path.name))
+    elif not hide and path.name.startswith('.'):
+        path = path.rename(path.parent.joinpath(path.name[1:]))
+    return path
 
 
 def read(str_params, default=None):

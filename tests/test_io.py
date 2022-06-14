@@ -1,9 +1,15 @@
 import unittest
+from unittest import mock
 import uuid
+import tempfile
+import os
+from pathlib import Path
 
 import numpy as np
 
 from iblutil.io.parquet import uuid2np, np2uuid, np2str, str2np
+from iblutil.io import params
+import iblutil.io.jsonable as jsonable
 from iblutil.numerical import intersect2d, ismember2d, ismember
 
 
@@ -51,6 +57,42 @@ class TestParquet(unittest.TestCase):
         uuids = [uuid.uuid4() for _ in np.arange(4)]
         np_uuids = uuid2np(uuids)
         assert np2uuid(np_uuids) == uuids
+
+
+class TestParams(unittest.TestCase):
+
+    @mock.patch('sys.platform', 'linux')
+    def test_set_hidden(self):
+        with tempfile.TemporaryDirectory() as td:
+            file = Path(td).joinpath('file')
+            file.touch()
+            hidden_file = params.set_hidden(file, True)
+            self.assertFalse(file.exists())
+            self.assertTrue(hidden_file.exists())
+            self.assertEqual(hidden_file.name, '.file')
+
+            params.set_hidden(hidden_file, False)
+            self.assertFalse(hidden_file.exists())
+            self.assertTrue(file.exists())
+
+
+class TestsJsonable(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tfile = tempfile.NamedTemporaryFile(delete=False)
+
+    def testReadWrite(self):
+        data = [{'a': 'thisisa', 'b': 1, 'c': [1, 2, 3]},
+                {'a': 'thisisb', 'b': 2, 'c': [2, 3, 4]}]
+        jsonable.write(self.tfile.name, data)
+        data2 = jsonable.read(self.tfile.name)
+        self.assertEqual(data, data2)
+        jsonable.append(self.tfile.name, data)
+        data3 = jsonable.read(self.tfile.name)
+        self.assertEqual(data + data, data3)
+
+    def tearDown(self) -> None:
+        self.tfile.close()
+        os.unlink(self.tfile.name)
 
 
 if __name__ == "__main__":
