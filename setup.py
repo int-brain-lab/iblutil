@@ -16,7 +16,7 @@ install it on Python {}.{}.
 """.format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
     sys.exit(1)
 
-with open("README.md", 'r') as f:
+with open('README.md', 'r') as f:
     long_description = f.read()
 
 with open('requirements.txt') as f:
@@ -24,14 +24,14 @@ with open('requirements.txt') as f:
 
 setup(
     name='iblutil',
-    version='1.0.0',
+    version='1.1.0',
     python_requires='>={}.{}'.format(*REQUIRED_PYTHON),
     description='IBL utilities',
-    license="MIT",
+    license='MIT',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='IBL Staff',
-    url="https://www.internationalbrainlab.com/",
+    url='https://github.com/int-brain-lab/iblrplate/',
     packages=find_packages(exclude=['scratch', 'tests']),  # same as name
     include_package_data=True,
     # external packages as dependencies
