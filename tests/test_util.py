@@ -59,5 +59,14 @@ class TestRangeStr(unittest.TestCase):
         self.assertEqual(util.range_str([]), '')
 
 
+class TestLogger(unittest.TestCase):
+
+    def test_no_duplicates(self):
+        log = util.get_logger('gnagna')
+        assert len(log.handlers) == 1
+        log = util.get_logger('gnagna')
+        assert len(log.handlers) == 1
+
+
 if __name__ == "__main__":
     unittest.main(exit=False)

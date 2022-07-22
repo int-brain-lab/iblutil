@@ -1,5 +1,7 @@
 from pathlib import Path
 import collections
+import colorlog
+import logging
 
 import numpy as np
 
@@ -102,3 +104,36 @@ def range_str(values: iter) -> str:
     if k > -1:
         trial_str = f'{trial_str[:k]} &{trial_str[k + 1:]}'
     return trial_str
+
+
+def get_logger(name='ibl', level=None):
+    """
+    Logger to use by default. Sets the name if not set already and add a stream handler
+    If the stream handler already exists, does not duplicate.
+    Uses date time, calling function and distinct colours for levels.
+    The naming/level allows not to interfere with third-party libraries when setting level
+    """
+    if not name:
+        log = logging.getLogger()  # root logger
+    else:
+        log = logging.getLogger(name)
+    log.setLevel(logging.INFO)
+    format_str = '%(asctime)s.%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
+    date_format = '%Y-%m-%d %H:%M:%S'
+    cformat = '%(log_color)s' + format_str
+    colors = {'DEBUG': 'green',
+              'INFO': 'cyan',
+              'WARNING': 'bold_yellow',
+              'ERROR': 'bold_red',
+              'CRITICAL': 'bold_purple'}
+    formatter = colorlog.ColoredFormatter(
+        cformat, date_format, log_colors=colors)
+    # check existence of stream handlers before adding another
+    if not any(map(lambda x: x.name == 'ibl_auto', log.handlers)):
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        stream_handler.name = 'ibl_auto'
+        log.addHandler(stream_handler)
+    if level:
+        log.setLevel(level)
+    return log
