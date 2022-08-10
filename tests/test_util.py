@@ -1,7 +1,7 @@
 import unittest
-import tempfile
-from pathlib import Path
 import types
+from pathlib import Path
+import tempfile
 
 import numpy as np
 
@@ -66,6 +66,19 @@ class TestLogger(unittest.TestCase):
         assert len(log.handlers) == 1
         log = util.get_logger('gnagna')
         assert len(log.handlers) == 1
+
+    def test_file_handler(self):
+        tf = tempfile.NamedTemporaryFile()
+        log = util.get_logger('tutu', file=tf.name, no_color=True)
+        log.info('toto')
+        lines = tf.readlines()
+        assert (len(lines) == 1)
+        log = util.get_logger('tutu', file=tf.name)
+        log.info('tata')
+        tf.seek(0, 0)
+        lines = tf.readlines()
+        assert (len(lines) == 2)
+        Path(tf.name).unlink()
 
 
 if __name__ == "__main__":

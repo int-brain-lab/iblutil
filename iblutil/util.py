@@ -2,6 +2,7 @@ from pathlib import Path
 import collections
 import colorlog
 import logging
+import sys
 
 import numpy as np
 
@@ -56,7 +57,7 @@ def _iflatten(x):
 
 def _gflatten(x):
     def iselement(e):
-        return not(isinstance(e, collections.abc.Iterable) and not(
+        return not (isinstance(e, collections.abc.Iterable) and not (
             isinstance(el, str) or isinstance(el, dict)))
     for el in x:
         if iselement(el):
@@ -106,7 +107,7 @@ def range_str(values: iter) -> str:
     return trial_str
 
 
-def get_logger(name='ibl', level=None):
+def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     """
     Logger to use by default. Sets the name if not set already and add a stream handler
     If the stream handler already exists, does not duplicate.
@@ -117,7 +118,6 @@ def get_logger(name='ibl', level=None):
         log = logging.getLogger()  # root logger
     else:
         log = logging.getLogger(name)
-    log.setLevel(logging.INFO)
     format_str = '%(asctime)s.%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
     date_format = '%Y-%m-%d %H:%M:%S'
     cformat = '%(log_color)s' + format_str
@@ -126,14 +126,21 @@ def get_logger(name='ibl', level=None):
               'WARNING': 'bold_yellow',
               'ERROR': 'bold_red',
               'CRITICAL': 'bold_purple'}
-    formatter = colorlog.ColoredFormatter(
-        cformat, date_format, log_colors=colors)
+    log.setLevel(level)
+    fkwargs = {'no_color': True} if no_color else {'log_colors': colors}
     # check existence of stream handlers before adding another
-    if not any(map(lambda x: x.name == 'ibl_auto', log.handlers)):
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        stream_handler.name = 'ibl_auto'
+    if file and not any(map(lambda x: x.name == str(file), log.handlers)):
+        file_handler = logging.FileHandler(filename=file)
+        file_handler.setFormatter(
+            colorlog.ColoredFormatter(cformat, date_format, **fkwargs))
+        file_handler.name = str(file)
+        file_handler.setLevel(level)
+        log.addHandler(file_handler)
+    if not any(map(lambda x: x.name == f'{name}_auto', log.handlers)):
+        stream_handler = logging.StreamHandler(stream=sys.stdout)
+        stream_handler.setFormatter(
+            colorlog.ColoredFormatter(cformat, date_format, **fkwargs))
+        stream_handler.name = f'{name}_auto'
+        stream_handler.setLevel(level)
         log.addHandler(stream_handler)
-    if level:
-        log.setLevel(level)
     return log
