@@ -75,13 +75,13 @@ class TestLogger(unittest.TestCase):
             file_log = Path(tn).joinpath('log.txt')
             log = util.get_logger('tutu', file=file_log, no_color=True)
             log.info('toto')
-            with open(file_log) as fp:
-                lines = fp.readlines()
-            assert (len(lines) == 1)
             # the purpose of the test is to test that the logger/handler has not been
-            # duplicated
+            # duplicated so after 2 calls we expect 2 lines
             log = util.get_logger('tutu', file=file_log)
             log.info('tata')
+            for handler in log.handlers:
+                log.removeHandler(handler)
+                handler.close()
             with open(file_log) as fp:
                 lines = fp.readlines()
             assert (len(lines) == 2)
