@@ -68,17 +68,23 @@ class TestLogger(unittest.TestCase):
         assert len(log.handlers) == 1
 
     def test_file_handler(self):
-        tf = tempfile.NamedTemporaryFile()
-        log = util.get_logger('tutu', file=tf.name, no_color=True)
-        log.info('toto')
-        lines = tf.readlines()
-        assert (len(lines) == 1)
-        log = util.get_logger('tutu', file=tf.name)
-        log.info('tata')
-        tf.seek(0, 0)
-        lines = tf.readlines()
-        assert (len(lines) == 2)
-        Path(tf.name).unlink()
+        # NB: this doesn't work with a context manager, the handlers get all confused
+        # with the fake file object
+        import tempfile
+        with tempfile.TemporaryDirectory() as tn:
+            file_log = Path(tn).joinpath('log.txt')
+            log = util.get_logger('tutu', file=file_log, no_color=True)
+            log.info('toto')
+            # the purpose of the test is to test that the logger/handler has not been
+            # duplicated so after 2 calls we expect 2 lines
+            log = util.get_logger('tutu', file=file_log)
+            log.info('tata')
+            for handler in log.handlers:
+                log.removeHandler(handler)
+                handler.close()
+            with open(file_log) as fp:
+                lines = fp.readlines()
+            assert (len(lines) == 2)
 
 
 if __name__ == "__main__":

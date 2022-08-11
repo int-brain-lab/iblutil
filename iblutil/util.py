@@ -113,6 +113,13 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     If the stream handler already exists, does not duplicate.
     Uses date time, calling function and distinct colours for levels.
     The naming/level allows not to interfere with third-party libraries when setting level
+
+    :param name: logger name, should be set to __name__ for consistent logging in the app
+    :param level: defaults to INFO
+    :param file: if not None, will add a File Handler
+    :param no_color: if set to True, removes colorlogs. This is useful when stdout is redirected
+     to a file
+    :return: logger object
     """
     if not name:
         log = logging.getLogger()  # root logger
@@ -132,7 +139,7 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     if file and not any(map(lambda x: x.name == str(file), log.handlers)):
         file_handler = logging.FileHandler(filename=file)
         file_handler.setFormatter(
-            colorlog.ColoredFormatter(cformat, date_format, **fkwargs))
+            colorlog.ColoredFormatter(cformat, date_format, no_color=True))
         file_handler.name = str(file)
         file_handler.setLevel(level)
         log.addHandler(file_handler)
