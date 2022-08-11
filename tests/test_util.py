@@ -70,19 +70,21 @@ class TestLogger(unittest.TestCase):
     def test_file_handler(self):
         # NB: this doesn't work with a context manager, the handlers get all confused
         # with the fake file object
-        tf = tempfile.NamedTemporaryFile()
-        log = util.get_logger('tutu', file=tf.name, no_color=True)
-        log.info('toto')
-        lines = tf.readlines()
-        assert (len(lines) == 1)
-        # the purpose of the test is to test that the logger/handler has not been
-        # duplicated
-        log = util.get_logger('tutu', file=tf.name)
-        log.info('tata')
-        tf.seek(0, 0)
-        lines = tf.readlines()
-        tf.close()
-        assert (len(lines) == 2)
+        import tempfile
+        with tempfile.TemporaryDirectory() as tn:
+            file_log = Path(tn).joinpath('log.txt')
+            log = util.get_logger('tutu', file=file_log, no_color=True)
+            log.info('toto')
+            with open(file_log) as fp:
+                lines = fp.readlines()
+            assert (len(lines) == 1)
+            # the purpose of the test is to test that the logger/handler has not been
+            # duplicated
+            log = util.get_logger('tutu', file=file_log)
+            log.info('tata')
+            with open(file_log) as fp:
+                lines = fp.readlines()
+            assert (len(lines) == 2)
 
 
 if __name__ == "__main__":
