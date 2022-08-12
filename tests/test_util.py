@@ -81,9 +81,12 @@ class TestLogger(unittest.TestCase):
             # duplicated so after 2 calls we expect 2 lines
             log = util.get_logger('tutu', file=file_log)
             log.info('tata')
-            for handler in log.handlers:
-                log.removeHandler(handler)
-                handler.close()
+            while True:
+                handlers = log.handlers
+                if len(handlers) == 0:
+                    break
+                handlers[0].close()
+                log.removeHandler(handlers[0])
             with open(file_log) as fp:
                 lines = fp.readlines()
             assert (len(lines) == 3)
