@@ -92,7 +92,7 @@ class TestLogger(unittest.TestCase):
         """Test for ibllib.misc.log_to_file"""
         log_path = Path.home().joinpath('.ibl_logs', self.log_name)
         log_path.unlink(missing_ok=True)
-        test_log = util.log_to_file(self.log_name, log=self.log_name)
+        test_log = util.log_to_file(filename=self.log_name, name=self.log_name)
         test_log.info('foobar')
 
         # Should have created a log file and written to it
