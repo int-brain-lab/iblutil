@@ -2,6 +2,7 @@ import unittest
 import types
 from pathlib import Path
 import tempfile
+import logging
 
 import numpy as np
 
@@ -60,6 +61,7 @@ class TestRangeStr(unittest.TestCase):
 
 
 class TestLogger(unittest.TestCase):
+    log_name = '_foobar'
 
     def test_no_duplicates(self):
         log = util.get_logger('gnagna')
@@ -67,7 +69,7 @@ class TestLogger(unittest.TestCase):
         log = util.get_logger('gnagna')
         assert len(log.handlers) == 1
 
-    def test_file_handler(self):
+    def test_file_handler_setup(self):
         # NB: this doesn't work with a context manager, the handlers get all confused
         # with the fake file object
         import tempfile
@@ -84,7 +86,28 @@ class TestLogger(unittest.TestCase):
                 handler.close()
             with open(file_log) as fp:
                 lines = fp.readlines()
-            assert (len(lines) == 2)
+            assert (len(lines) == 3)
+
+    def test_file_handler_stand_alone(self):
+        """Test for ibllib.misc.log_to_file"""
+        log_path = Path.home().joinpath('.ibl_logs', self.log_name)
+        log_path.unlink(missing_ok=True)
+        test_log = util.log_to_file(self.log_name, log=self.log_name)
+        test_log.info('foobar')
+
+        # Should have created a log file and written to it
+        self.assertTrue(log_path.exists())
+        with open(log_path, 'r') as f:
+            logged = f.read()
+        self.assertIn('foobar', logged)
+
+    def tearDown(self) -> None:
+        # Before we can delete the test log file we must close the file handler
+        test_log = logging.getLogger(self.log_name)
+        for handler in test_log.handlers:
+            handler.close()
+            test_log.removeHandler(handler)
+        Path.home().joinpath('.ibl_logs', self.log_name).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
