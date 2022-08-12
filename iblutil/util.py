@@ -6,6 +6,9 @@ import sys
 
 import numpy as np
 
+LOG_FORMAT_STR = '%(asctime)s.%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
+LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+
 
 class Bunch(dict):
     """A subclass of dictionary with an additional dot syntax."""
@@ -125,9 +128,6 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
         log = logging.getLogger()  # root logger
     else:
         log = logging.getLogger(name)
-    format_str = '%(asctime)s.%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
-    date_format = '%Y-%m-%d %H:%M:%S'
-    cformat = '%(log_color)s' + format_str
     colors = {'DEBUG': 'green',
               'INFO': 'cyan',
               'WARNING': 'bold_yellow',
@@ -136,18 +136,51 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     log.setLevel(level)
     fkwargs = {'no_color': True} if no_color else {'log_colors': colors}
     # check existence of stream handlers before adding another
-    if file and not any(map(lambda x: x.name == str(file), log.handlers)):
-        file_handler = logging.FileHandler(filename=file)
-        file_handler.setFormatter(
-            colorlog.ColoredFormatter(cformat, date_format, no_color=True))
-        file_handler.name = str(file)
-        file_handler.setLevel(level)
-        log.addHandler(file_handler)
     if not any(map(lambda x: x.name == f'{name}_auto', log.handlers)):
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         stream_handler.setFormatter(
-            colorlog.ColoredFormatter(cformat, date_format, **fkwargs))
+            colorlog.ColoredFormatter('%(log_color)s' + LOG_FORMAT_STR,
+                                      LOG_DATE_FORMAT, **fkwargs))
         stream_handler.name = f'{name}_auto'
         stream_handler.setLevel(level)
         log.addHandler(stream_handler)
+    # add the file handler if requested, but check for duplicates
+    if not any(map(lambda x: x.name == f'{name}_file', log.handlers)):
+        if file is True:
+            log_to_file(name=name, level=level)
+        elif file is not None:
+            log_to_file(filename=file, name=name, level=level)
+    return log
+
+
+def log_to_file(filename=None, name='ibllib', level=logging.INFO):
+    """
+    Save log information to a given filename in '.ibl_logs' folder (in home directory).
+
+    Parameters
+    ----------
+    full_file_path : str or Pathlib.Path
+        The name of the log file to save to.
+    log : str, logging.Logger
+        The log (name or object) to add file handler to.
+
+    Returns
+    -------
+    logging.Logger
+        The log with the file handler attached.
+    """
+    if filename is None:
+        filename = Path.home().joinpath('.ibl_logs', name)
+    elif not Path(filename).is_absolute():
+        filename = Path.home().joinpath('.ibl_logs', filename)
+    filename.parent.mkdir(exist_ok=True)
+    if isinstance(name, str):
+        log = logging.getLogger(name)
+    log.setLevel(level)
+    file_handler = logging.FileHandler(filename)
+    file_format = logging.Formatter(LOG_FORMAT_STR, LOG_DATE_FORMAT)
+    file_handler.setFormatter(file_format)
+    file_handler.name = f"{name}_file"
+    log.addHandler(file_handler)
+    log.info(f'File log initiated {file_handler.name}')
     return log
