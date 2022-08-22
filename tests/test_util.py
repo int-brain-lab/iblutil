@@ -65,14 +65,13 @@ class TestLogger(unittest.TestCase):
 
     def test_no_duplicates(self):
         log = util.get_logger('gnagna')
-        assert len(log.handlers) == 1
+        self.assertEqual(1, len(log.handlers))
         log = util.get_logger('gnagna')
-        assert len(log.handlers) == 1
+        self.assertEqual(1, len(log.handlers))
 
     def test_file_handler_setup(self):
         # NB: this doesn't work with a context manager, the handlers get all confused
         # with the fake file object
-        import tempfile
         with tempfile.TemporaryDirectory() as tn:
             file_log = Path(tn).joinpath('log.txt')
             log = util.get_logger('tutu', file=file_log, no_color=True)
@@ -89,13 +88,13 @@ class TestLogger(unittest.TestCase):
                 log.removeHandler(handlers[0])
             with open(file_log) as fp:
                 lines = fp.readlines()
-            assert (len(lines) == 3)
+            self.assertEqual(3, len(lines))
 
     def test_file_handler_stand_alone(self):
         """Test for ibllib.misc.log_to_file"""
         log_path = Path.home().joinpath('.ibl_logs', self.log_name)
         log_path.unlink(missing_ok=True)
-        test_log = util.log_to_file(filename=self.log_name, name=self.log_name)
+        test_log = util.log_to_file(filename=self.log_name, log=self.log_name)
         test_log.info('foobar')
 
         # Should have created a log file and written to it
@@ -103,6 +102,17 @@ class TestLogger(unittest.TestCase):
         with open(log_path, 'r') as f:
             logged = f.read()
         self.assertIn('foobar', logged)
+
+    def test_file_handler_log_input(self):
+        """Test ibllib.misc.log_to_file accepts log object as input"""
+        # Should word with log as input
+        test_log = logging.getLogger(self.log_name)
+        util.log_to_file(test_log).info('hello world!')
+        log_path = Path.home().joinpath('.ibl_logs', self.log_name)
+        self.assertTrue(log_path.exists())
+        with open(log_path, 'r') as f:
+            logged = f.read()
+        self.assertIn('hello world', logged)
 
     def tearDown(self) -> None:
         # Before we can delete the test log file we must close the file handler

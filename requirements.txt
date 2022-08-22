@@ -1,4 +1,4 @@
-colorlog
+colorlog>=6.0.0
 flake8>=3.7.8
 numpy>=1.18
 pandas>=0.24.2
