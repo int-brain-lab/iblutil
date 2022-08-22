@@ -137,6 +137,10 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     fkwargs = {'no_color': True} if no_color else {'log_colors': colors}
     # check existence of stream handlers before adding another
     if not any(map(lambda x: x.name == f'{name}_auto', log.handlers)):
+        # need to remove any previous default Sream handler configured on stderr to not duplicate output
+        for h in log.handlers:
+            if h.stream.name == '<stderr>' and h.level == 0 and h.name is None:
+                log.removeHandler(h)
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         stream_handler.setFormatter(
             colorlog.ColoredFormatter('%(log_color)s' + LOG_FORMAT_STR,
