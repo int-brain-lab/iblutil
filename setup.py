@@ -24,7 +24,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='iblutil',
-    version='1.3.0',
+    version='1.3.1',
     python_requires='>={}.{}'.format(*REQUIRED_PYTHON),
     description='IBL utilities',
     license='MIT',
