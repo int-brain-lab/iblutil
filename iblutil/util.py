@@ -137,7 +137,8 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     fkwargs = {'no_color': True} if no_color else {'log_colors': colors}
     # check existence of stream handlers before adding another
     if not any(map(lambda x: x.name == f'{name}_auto', log.handlers)):
-        # need to remove any previous default Sream handler configured on stderr to not duplicate output
+        # need to remove any previous default Stream handler configured on stderr
+        # to not duplicate output
         for h in log.handlers:
             if h.stream.name == '<stderr>' and h.level == 0 and h.name is None:
                 log.removeHandler(h)
@@ -151,40 +152,40 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     # add the file handler if requested, but check for duplicates
     if not any(map(lambda x: x.name == f'{name}_file', log.handlers)):
         if file is True:
-            log_to_file(name=name, level=level)
+            log_to_file(log=name, level=level)
         elif file is not None:
-            log_to_file(filename=file, name=name, level=level)
+            log_to_file(filename=file, log=name, level=level)
     return log
 
 
-def log_to_file(filename=None, name='ibllib', level=logging.INFO):
+def log_to_file(log='ibllib', filename=None, level=logging.INFO):
     """
     Save log information to a given filename in '.ibl_logs' folder (in home directory).
 
     Parameters
     ----------
-    full_file_path : str or Pathlib.Path
-        The name of the log file to save to.
     log : str, logging.Logger
         The log (name or object) to add file handler to.
+    filename : str, Pathlib.Path
+        The name of the log file to save to.
 
     Returns
     -------
     logging.Logger
         The log with the file handler attached.
     """
+    if isinstance(log, str):
+        log = logging.getLogger(log)
     if filename is None:
-        filename = Path.home().joinpath('.ibl_logs', name)
+        filename = Path.home().joinpath('.ibl_logs', log.name)
     elif not Path(filename).is_absolute():
         filename = Path.home().joinpath('.ibl_logs', filename)
     filename.parent.mkdir(exist_ok=True)
-    if isinstance(name, str):
-        log = logging.getLogger(name)
     log.setLevel(level)
     file_handler = logging.FileHandler(filename)
     file_format = logging.Formatter(LOG_FORMAT_STR, LOG_DATE_FORMAT)
     file_handler.setFormatter(file_format)
-    file_handler.name = f"{name}_file"
+    file_handler.name = f'{log.name}_file'
     log.addHandler(file_handler)
     log.info(f'File log initiated {file_handler.name}')
     return log
