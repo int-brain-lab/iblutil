@@ -1,25 +1,27 @@
-from setuptools import setup, find_packages
 import sys
 from pathlib import Path
+
+from setuptools import setup, find_packages
 
 CURRENT_DIRECTORY = Path(__file__).parent.absolute()
 
 CURRENT_PYTHON = sys.version_info[:2]
 REQUIRED_PYTHON = (3, 8)
-if CURRENT_PYTHON < REQUIRED_PYTHON:
-    sys.stderr.write("""
+VER_ERR_MSG = """
 ==========================
 Unsupported Python version
 ==========================
 This version of iblutil requires Python {}.{}, but you're trying to
 install it on Python {}.{}.
-""".format(*(REQUIRED_PYTHON + CURRENT_PYTHON)))
+"""
+if CURRENT_PYTHON < REQUIRED_PYTHON:
+    sys.stderr.write(VER_ERR_MSG.format(*REQUIRED_PYTHON + CURRENT_PYTHON))
     sys.exit(1)
 
-with open('README.md', 'r') as f:
+with open("README.md", "r") as f:
     long_description = f.read()
 
-with open('requirements.txt') as f:
+with open("requirements.txt") as f:
     require = [x.strip() for x in f.readlines() if not x.startswith('git+')]
 
 
