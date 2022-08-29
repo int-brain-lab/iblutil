@@ -5,7 +5,7 @@ from pathlib import Path
 CURRENT_DIRECTORY = Path(__file__).parent.absolute()
 
 CURRENT_PYTHON = sys.version_info[:2]
-REQUIRED_PYTHON = (3, 7)
+REQUIRED_PYTHON = (3, 8)
 if CURRENT_PYTHON < REQUIRED_PYTHON:
     sys.stderr.write("""
 ==========================
@@ -22,20 +22,36 @@ with open('README.md', 'r') as f:
 with open('requirements.txt') as f:
     require = [x.strip() for x in f.readlines() if not x.startswith('git+')]
 
+
+def read(rel_path):
+    here = Path(__file__).parent.absolute()
+    with open(here.joinpath(rel_path), "r") as fp:
+        return fp.read()
+
+
+def get_version(rel_path):
+    for line in read(rel_path).splitlines():
+        if line.startswith("__version__"):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    else:
+        raise RuntimeError("Unable to find version string.")
+
+
 setup(
     name='iblutil',
-    version='1.3.1',
+    version=get_version(Path("iblutil").joinpath("__init__.py")),
     python_requires='>={}.{}'.format(*REQUIRED_PYTHON),
     description='IBL utilities',
     license='MIT',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='IBL Staff',
-    url='https://github.com/int-brain-lab/iblrplate/',
+    url='https://github.com/int-brain-lab/iblutil/',
     packages=find_packages(exclude=['scratch', 'tests']),  # same as name
     include_package_data=True,
     # external packages as dependencies
     install_requires=require,
     entry_points={},
-    scripts={}
+    scripts=[]
 )
