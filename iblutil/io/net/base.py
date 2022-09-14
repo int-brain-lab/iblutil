@@ -21,10 +21,13 @@ ALYX
 import re
 import json
 import socket
+import warnings
+from asyncio import isfuture
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 import urllib.request
 import ipaddress
+
 
 LISTEN_PORT = 1001  # listen for commands on this port
 
@@ -87,6 +90,14 @@ class Communicator(ABC):
     default_listen_port = LISTEN_PORT
     event_mode = False
     server_uri = None
+    _callbacks = {k: [] for k in ('EXPINIT', 'EXPSTART', 'EXPEND', 'EXPCLEANUP')}
+
+    def assign_callback(self, event, callback):
+        if (event := event.strip().upper()) not in self._callbacks:
+            raise ValueError(f'Unrecognized event "{event}". Choices: {tuple(self._callbacks.keys())}')
+        if not (callable(callback) or isfuture(callback)):
+            raise ValueError('Callback must be callable or a Future')
+        self._callbacks.setdefault(event, []).append(callback)
 
     @property
     def port(self) -> int:
@@ -97,12 +108,12 @@ class Communicator(ABC):
         return urlparse(self.server_uri).hostname
 
     @property
-    @abstractmethod
-    def is_open(self):
-        pass
+    def protocol(self) -> str:
+        return urlparse(self.server_uri).scheme
 
+    @property
     @abstractmethod
-    def bind(self):
+    def is_connected(self):
         pass
 
     @abstractmethod
@@ -118,7 +129,7 @@ class Communicator(ABC):
         pass
 
     @abstractmethod
-    def receive(self):
+    def receive(self, data, addr):
         pass
 
     @abstractmethod
@@ -133,3 +144,13 @@ class Communicator(ABC):
         if not isinstance(data, str):
             data = json.dumps(data)
         return data.encode()
+
+    @staticmethod
+    def decode(data):
+        """Serialize data for transmission"""
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            warnings.warn('Failed to decode as JSON')
+            data = data.decode()
+        return data

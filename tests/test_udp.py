@@ -2,7 +2,7 @@ import logging
 import unittest
 import ipaddress
 
-from iblutil.io.socket import base, udp
+from iblutil.io.net import base, app
 
 
 class TestBase(unittest.TestCase):
@@ -40,18 +40,48 @@ class TestBase(unittest.TestCase):
 
 class TestUDP(unittest.IsolatedAsyncioTestCase):
 
+    last_call = None
+
     def setUp(self):
         pass
         # from iblutil.util import get_logger
-        # get_logger(udp.__name__, level=logging.DEBUG)
+        # get_logger(app.__name__, level=logging.DEBUG)
 
     async def asyncSetUp(self):
-        self.server = await udp.UDPEchoProtocol.server('localhost')
-        self.client = await udp.UDPEchoProtocol.client('localhost')
+        self.server = await app.EchoProtocol.server('localhost')
+        self.client = await app.EchoProtocol.client('localhost')
+
+    def _update_call(self, data, addr):
+        self.last_call = (data, addr)
 
     async def test_start(self):
         """Tests confirmed send via start command"""
-        with self.assertLogs(udp.__name__, logging.INFO) as log:
+        self.server.assign_callback('expstart', self._update_call)
+        with self.assertLogs(app.__name__, logging.INFO) as log:
+            await self.client.start('2022-01-01_1_subject')
+            expected = 'Received \'["EXPSTART", "2022-01-01_1_subject"]\''
+            self.assertIn(expected, log.records[-1].message)
+        self.assertEqual('2022-01-01_1_subject', self.last_call[0])
+
+    def tearDown(self):
+        self.client.close()
+        self.server.close()
+
+
+class TestWebSockets(unittest.IsolatedAsyncioTestCase):
+
+    def setUp(self):
+        pass
+        # from iblutil.util import get_logger
+        # get_logger(app.__name__, level=logging.DEBUG)
+
+    async def asyncSetUp(self):
+        self.server = await app.EchoProtocol.server('ws://localhost:8888')
+        self.client = await app.EchoProtocol.client('ws://localhost:8888')
+
+    async def test_start(self):
+        """Tests confirmed send via start command"""
+        with self.assertLogs(app.__name__, logging.INFO) as log:
             await self.client.start('2022-01-01_1_subject')
             expected = 'Received \'["EXPSTART", "2022-01-01_1_subject"]\''
             self.assertIn(expected, log.records[-1].message)

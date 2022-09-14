@@ -4,8 +4,10 @@ import urllib.request
 import logging
 import asyncio
 import argparse
+import socket
+from functools import partial
 
-from iblutil.io.socket.base import Communicator, LISTEN_PORT, validate_uri, hostname2ip
+from iblutil.io.net.base import Communicator, LISTEN_PORT, validate_uri, hostname2ip
 _logger = logging.getLogger(__name__)
 
 
@@ -15,22 +17,45 @@ def _address2tuple(address):
     return parsed_uri.hostname, parsed_uri.port
 
 
-class UDPEchoProtocol(Communicator, asyncio.DatagramProtocol):
-    """A UDP server implementing DatagramTransport"""
-    def __init__(self):
+class EchoProtocol(Communicator):
+    """An echo server implementing TCP/IP and UDP"""
+    Server = None
+    _role = None
+
+    def __init__(self, server_uri, role):
         self._transport = None
         self._socket = None
-        self._role = None
+        self.role = role
+        self.server_uri = server_uri
         # For validating echo'd response
         self._last_sent = None
         self._echo_future = None
 
     @property
-    def is_open(self):
+    def role(self):
+        return self._role
+
+    @role.setter
+    def role(self, value):
+        if self._role is not None:
+            raise AttributeError('can\'t set attribute')
+        if value.strip().lower() not in ('server', 'client'):
+            raise ValueError(f'role must be either "server" or "client"')
+        self._role = value.strip().lower()
+
+    @property
+    def is_connected(self):
         return self._transport and not self._transport.is_closing()
 
-    def receive(self):
-        pass
+    @property
+    def awaiting_response(self):
+        return self._last_sent and self._echo_future
+
+    def receive(self, data, addr):
+        if isinstance(data, list):
+            event, data = data
+            for fcn in self._callbacks[event.upper()]:
+                fcn(data, addr)
 
     async def cleanup(self):
         pass
@@ -39,11 +64,7 @@ class UDPEchoProtocol(Communicator, asyncio.DatagramProtocol):
         await self.confirmed_send(('EXPSTART', exp_ref))
 
     async def stop(self):
-        pass
-
-    def bind(self):
-        _logger.debug('Connected')
-        pass
+        await self.confirmed_send(('EXPEND', None))
 
     @staticmethod
     def encode(data):
@@ -54,13 +75,16 @@ class UDPEchoProtocol(Communicator, asyncio.DatagramProtocol):
             data = json.dumps(data)
         return data.encode()
 
-    def send(self, data):
+    def send(self, data, addr=None):
         """Send data to clients.
 
         Serialize data and pass to transport layer.
         """
         _logger.debug(f'Send "{data}" to {self.server_uri}')
-        self._transport.sendto(self.encode(data))
+        if self.protocol == 'udp':
+            self._transport.sendto(data, addr)
+        else:
+            self._transport.write(self.encode(data))
 
     async def confirmed_send(self, data, timeout=10):
         assert self._role == 'client'
@@ -92,26 +116,59 @@ class UDPEchoProtocol(Communicator, asyncio.DatagramProtocol):
         """Called by event loop"""
         self._transport = transport
         self._socket = transport.get_extra_info('socket')
-        self.bind()
+
+        # Validate
+        if self._socket.type is socket.SOCK_DGRAM:
+            if self.protocol != 'udp':
+                raise RuntimeError('Unsupported transport layer for UDP')
+        elif self._socket.type is socket.SOCK_STREAM:
+            if self.protocol not in ('ws', 'wss', 'tcp'):
+                raise RuntimeError('Unsupported transport layer for TCP/IP')
+        else:
+            raise RuntimeError(f'Unsupported transport layer with socket type "{self._socket.type.name}"')
+        _logger.debug(f'Connected with socket {self._socket}')
 
     def datagram_received(self, data, addr):
-        msg = data.decode()
+        """Called by UDP transport layer"""
         host, port = addr[:2]
         if host != self.hostname:
-            _logger.warning(f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{msg}"', )
-            return
-        _logger.info('Received %r from udp://%s:%i', msg, host, port)
+            _logger.warning(f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{data}"')
+        else:
+            msg = data.decode()
+            _logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
+            if self._role == 'server':  # echo
+                _logger.debug('Send %r to %s://%s:%i', msg, self.protocol, host, port)
+                self.send(data, addr)
+            elif self._role == 'client' and self.awaiting_response:
+                if data != self._last_sent:
+                    self._echo_future.set_exception(RuntimeError)
+                else:
+                    self._echo_future.set_result(True)
+                    return
+            self.receive(self.decode(data), addr)
+
+    def data_received(self, data):
+        """Called by TCP/IP transport layer"""
+        msg = data.decode()
+        addr = self._transport.get_extra_info('peername')[:2]
+        host, port = addr
+        _logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
         if self._role == 'server':  # echo
-            _logger.debug('Send %r to udp://%s:%i', msg, host, port)
-            self._transport.sendto(data, addr)
-        elif self._role == 'client' and self._last_sent and self._echo_future:
+            _logger.debug('Send %r to %s://%s:%i', msg, self.protocol, host, port)
+            self._transport.write(data)
+        elif self._role == 'client' and self.awaiting_response:
             if data != self._last_sent:
                 self._echo_future.set_exception(RuntimeError)
             else:
                 self._echo_future.set_result(True)
+            return
+        self.receive(self.decode(data), addr)
 
     def error_received(self, exc):
         print('Error received:', exc)
+
+    def eof_received(self,):
+        _logger.debug('EOF received')
 
     def connection_lost(self, exc):
         _logger.info('Connection closed')
@@ -121,7 +178,7 @@ class UDPEchoProtocol(Communicator, asyncio.DatagramProtocol):
     # Factory methods for instantiating a server or client
 
     @staticmethod
-    async def server(server_uri, **kwargs) -> 'UDPEchoProtocol':
+    async def server(server_uri, **kwargs) -> 'EchoProtocol':
         """Create a server instance"""
         # Validate server URI
         server_uri = validate_uri(server_uri)
@@ -130,42 +187,48 @@ class UDPEchoProtocol(Communicator, asyncio.DatagramProtocol):
         loop = asyncio.get_running_loop()
 
         # One protocol instance will be created to serve all client requests.
-        _, protocol = await loop.create_datagram_endpoint(
-            UDPEchoProtocol,
-            local_addr=_address2tuple(server_uri), **kwargs)
-        protocol._role = 'server'
-        protocol.server_uri = server_uri
+        if server_uri.startswith('udp'):
+            Protocol = partial(EchoProtocol, server_uri, 'server')
+            _, protocol = await loop.create_datagram_endpoint(Protocol, local_addr=_address2tuple(server_uri), **kwargs)
+        else:
+            protocol = EchoProtocol(server_uri, 'server')
+            protocol.Server = await loop.create_server(lambda: protocol, *_address2tuple(server_uri), **kwargs)
+
         _logger.info(f'Listening on {protocol.server_uri}')
         return protocol
 
     @staticmethod
-    async def client(server_uri) -> 'UDPEchoProtocol':
+    async def client(server_uri, **kwargs) -> 'EchoProtocol':
         # Validate server URI
         server_uri = validate_uri(server_uri)
 
         # Get a reference to the event loop
         loop = asyncio.get_running_loop()
 
-        transport, protocol = await loop.create_datagram_endpoint(
-            UDPEchoProtocol, remote_addr=_address2tuple(server_uri))
+        Protocol = partial(EchoProtocol, server_uri, 'client')
+        if server_uri.startswith('udp'):
+            _, protocol = await loop.create_datagram_endpoint(Protocol, remote_addr=_address2tuple(server_uri), **kwargs)
+        else:
+            _, protocol = await loop.create_connection(Protocol, *_address2tuple(server_uri), **kwargs)
 
-        protocol._role = 'client'
-        protocol.server_uri = server_uri
         return protocol
 
 
 async def main(role, server_uri, **kwargs):
     if role == 'server':
-        print('Starting UDP server')
-        com = await UDPEchoProtocol.server(server_uri, **kwargs)
+        print('Starting server')
+        com = await EchoProtocol.server(server_uri, **kwargs)
         try:
-            await asyncio.sleep(60 * 60)  # Serve for 1 hour.
+            if com.server_uri.startswith('udp'):
+                await asyncio.sleep(60 * 60)  # Serve for 1 hour.
+            else:
+                await com.Server.serve_forever()
         finally:
             com.close()
     elif role == 'client':
-        print('Starting UDP client')
+        print('Starting client')
         # on_con_lost = (asyncio.get_running_loop()).create_future()
-        com = await UDPEchoProtocol.client(server_uri)
+        com = await EchoProtocol.client(server_uri)
         try:
             # Here you would send a message
             await com.start('2022-01-01_1_subject')
