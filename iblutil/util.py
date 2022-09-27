@@ -110,6 +110,76 @@ def range_str(values: iter) -> str:
     return trial_str
 
 
+def get_logger_config_as_dict(name="ibl", level="INFO", file=None) -> dict:
+    """
+    Get logger configurations as a dict instead of a logger object. This should be used in conjunction with
+    logging.config.dictConfig(). colorlog is not supported for now.
+
+    example usage:
+    >> import logging.config
+    >> from iblutil.util import get_logger_config_as_dict
+    >> logger_config = get_logger_config(name=__name__)
+    >> logging.config.dictConfig(logger_config)
+    >> log = logging.getLogger(__name__)
+    >> log.info('info message')
+
+    Parameters
+    ----------
+    name
+        desired name of the logger, typically is set to "__name__"; defaults to "ibl"
+    level
+        desired logging level; defaults to logging.INFO
+    file
+        location for the local log file
+
+    Returns
+    -------
+    dict
+        logging configuration as a dict
+    """
+    return_dict = {
+        "version": 1,
+        "root": {
+            "handlers": ["console"],
+            "level": "DEBUG"
+        },
+        "loggers": {
+            name: {
+                "handlers": ["console"],
+                "level": level,
+                "propagate": False
+            },
+        },
+        "handlers": {
+            "console": {
+                "formatter": "std_out",
+                "class": "logging.StreamHandler",
+                "level": level
+            },
+        },
+        "formatters": {
+            "std_out": {
+                "format": LOG_FORMAT_STR,
+                "datefmt": LOG_DATE_FORMAT
+            },
+        },
+    }
+
+    if file:  # exists, create appropriate directories and add file configuration to return_dict
+        file_path = Path.home().joinpath('.ibl_logs', file)
+        file_path.parent.mkdir(exist_ok=True)
+        file_config = {
+            "formatter": "std_out",
+            "class": "logging.FileHandler",
+            "level": level,
+            "filename": file_path
+        }
+        return_dict["handlers"]["file"] = file_config
+        return_dict["loggers"][name]["handlers"].append("file")
+
+    return return_dict
+
+
 def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
     """
     Logger to use by default. Sets the name if not set already and add a stream handler
