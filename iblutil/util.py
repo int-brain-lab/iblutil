@@ -110,7 +110,7 @@ def range_str(values: iter) -> str:
     return trial_str
 
 
-def get_logger_config_as_dict(name="ibl", level="INFO", file=None) -> dict:
+def get_logger_config_as_dict(name="ibl", level="INFO", file=False) -> dict:
     """
     Get logger configurations as a dict instead of a logger object. This should be used in conjunction with
     logging.config.dictConfig(). colorlog is not supported for now.
@@ -118,7 +118,7 @@ def get_logger_config_as_dict(name="ibl", level="INFO", file=None) -> dict:
     example usage:
     >> import logging.config
     >> from iblutil.util import get_logger_config_as_dict
-    >> logger_config = get_logger_config(name=__name__)
+    >> logger_config = get_logger_config_as_dict(name=__name__)
     >> logging.config.dictConfig(logger_config)
     >> log = logging.getLogger(__name__)
     >> log.info('info message')
@@ -130,7 +130,7 @@ def get_logger_config_as_dict(name="ibl", level="INFO", file=None) -> dict:
     level
         desired logging level; defaults to logging.INFO
     file
-        location for the local log file
+        bool to determine if logging to a file should occur; defaults to False
 
     Returns
     -------
@@ -165,8 +165,8 @@ def get_logger_config_as_dict(name="ibl", level="INFO", file=None) -> dict:
         },
     }
 
-    if file:  # exists, create appropriate directories and add file configuration to return_dict
-        file_path = Path.home().joinpath('.ibl_logs', file)
+    if file:  # specified, create appropriate directories and add file configuration to return_dict
+        file_path = Path.home() / ".ibl_logs" / name
         file_path.parent.mkdir(exist_ok=True)
         file_config = {
             "formatter": "std_out",
