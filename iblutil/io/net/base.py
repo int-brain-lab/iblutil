@@ -149,7 +149,7 @@ class ExpMessage(IntEnum):
     """Experiment cleanup begun."""
     EXPCLEANUP = 40
     """Experiment interrupted."""
-    EXPINTERUPT = 50
+    EXPINTERRUPT = 50
     """Experiment status."""
     EXPSTATUS = 1
     """Experiment info, including task protocol start and end."""
@@ -271,16 +271,16 @@ class Service(ABC):
         data : any
             Optional extra data to send to the remote server.
         immediately : bool
-            If True, an EXPINTERUPT message is returned.
+            If True, an EXPINTERRUPT message is returned.
 
         Returns
         -------
-        ExpMessage.EXPINTERUPT, ExpMessage.EXPEND
-            The EXPEND event, or EXPINTERUPT if immediately is True.
+        ExpMessage.EXPINTERRUPT, ExpMessage.EXPEND
+            The EXPEND event, or EXPINTERRUPT if immediately is True.
         any, None
             Optional extra data.
         """
-        return ExpMessage.EXPINTERUPT if immediately else ExpMessage.EXPEND, data
+        return ExpMessage.EXPINTERRUPT if immediately else ExpMessage.EXPEND, data
 
     @abstractmethod
     def cleanup(self, data=None):

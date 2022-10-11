@@ -138,14 +138,60 @@ class EchoProtocol(base.Communicator):
             return self._last_sent and any(not x[1].done() for x in self._last_sent.values())
 
     async def cleanup(self, data=None):
+        """Cleanup experiment.
+
+        Send a cleanup message to the remote host.
+
+        Parameters
+        ----------
+        data : any
+            Optional extra data to send to the remote host.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+        """
         message = super().cleanup(data)
         await self.confirmed_send(message)
 
     async def start(self, exp_ref, data=None):
+        """Start an experiment.
+
+        Send a stop message to the remote host.
+
+        Parameters
+        ----------
+        exp_ref : str
+            A experiment reference string in the form yyyy-mm-dd_n_subject.
+        data : any
+            Optional extra data to send to the remote host.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+        """
         message = super().start(exp_ref, data)
         await self.confirmed_send(message)
 
     async def stop(self, data=None, immediately=False):
+        """End an experiment.
+
+        Send a stop message to the remote host.
+
+        Parameters
+        ----------
+        data : any
+            Optional extra data to send to the remote host.
+        immediately : bool
+            If True, an EXPINTERRUPT signal is used.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+        """
         message = super().stop(data)
         await self.confirmed_send(message)
 
@@ -454,7 +500,6 @@ class EchoProtocol(base.Communicator):
 
 class Services(base.Service, UserDict):
     """Handler for multiple remote rig services."""
-    # FIXME If user renames underlying protocol, this will not propagate to services
     __slots__ = ('timeout', 'server')
 
     def __init__(self, remote_rigs, alyx=None, timeout=10.):
@@ -462,8 +507,8 @@ class Services(base.Service, UserDict):
 
         Parameters
         ----------
-        remote_rigs : list(iblutil.io.net.base.Communicator)
-            A list of remote rig communicator objects.
+        remote_rigs : list(iblutil.io.net.base.Service)
+            A list of remote rig service objects.
         alyx : one.webclient.AlyxClient
             An optional Alyx instance to send on request.
         timeout : float
@@ -471,12 +516,15 @@ class Services(base.Service, UserDict):
         """
         # Store rig communicators by name
         super().__init__()
+        if not all(isinstance(x, base.Service) for x in remote_rigs):
+            raise TypeError(f'Remote services must be of type {type(base.Service)}')
         self.data = MappingProxyType({rig.name: rig for rig in remote_rigs})  # Ensure immutable
         self.timeout = timeout
 
         # Register callbacks so that if an Alyx instance is requested the provided token is sent.
         if alyx:
             for rig in self.values():
+                # FIXME This won't work; unawaited call
                 rig.assign_callback(base.ExpMessage.ALYX, lambda _: rig.alyx(alyx))
 
     def assign_callback(self, event, callback, return_service=False):
@@ -559,29 +607,142 @@ class Services(base.Service, UserDict):
     async def init(self, data=None, concurrent=True):
         """Initialize an experiment.
 
-        Send an initialization message to the remote host.
+        Send an initialization signal to the remote services and await the responses.
 
         Parameters
         ----------
         data : any
             Optional extra data to send to the remote host.
         concurrent : bool
-            If false, wait for response for each service before communicating with the next.
+            If false, wait for response from each service before communicating with the next.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
 
         Raises
         ------
         TimeoutError
             Remote host failed to echo the message within the timeout period.
+            Remote host failed to respond within response period.
         """
         event = base.ExpMessage['EXPINIT']
+        return await self._signal(event, 'init', data=data, concurrent=concurrent)
+
+    async def cleanup(self, data=None, concurrent=True):
+        """Cleanup an experiment.
+
+        Send an cleanup signal to the remote services and await responses.
+
+        Parameters
+        ----------
+        data : any
+            Optional extra data to send to the remote host.
+        concurrent : bool
+            If false, wait for response from each service before communicating with the next.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+            Remote host failed to respond within response period.
+        """
+        event = base.ExpMessage.EXPCLEANUP
+        return await self._signal(event, 'cleanup', data=data, concurrent=concurrent)
+
+    async def start(self, exp_ref, data=None, concurrent=True):
+        """Start an experiment.
+
+        Send a start signal to the remote services and await responses.
+
+        Parameters
+        ----------
+        exp_ref : str
+            An experiment reference string in the form yyyy-mm-dd_n_subject.
+        data : any
+            Optional extra data to send to the remote host.
+        concurrent : bool
+            If false, wait for response from each service before communicating with the next.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+            Remote host failed to respond within response period.
+        """
+        event = base.ExpMessage.EXPSTART
+        return await self._signal(event, 'start', exp_ref, data=data, concurrent=concurrent)
+
+    async def stop(self, data=None, immediately=False, **kwargs):
+        """End an experiment.
+
+        Send a stop signal to the remote services and await responses.
+
+        Parameters
+        ----------
+        data : any
+            Optional extra data to send to the remote host.
+        immediately : bool
+            If true, send an EXPINTERRUPT signal.
+        concurrent : bool
+            If false, wait for response from each service before communicating with the next.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+            Remote host failed to respond within response period.
+        """
+        event = base.ExpMessage.EXPEND
+        return await self._signal(event, 'stop', data=data, immediately=immediately, **kwargs)
+
+    async def _signal(self, event, method, *args, concurrent=True, **kwargs):
+        """Send an event signal to the remote services and await responses.
+
+        Parameters
+        ----------
+        event : iblutil.io.net.base.ExpMessage
+            The event to signal to services.
+        method : str
+            The name of the method to call for each service.
+        *args
+            Positional arguments to pass to method.
+        concurrent : bool
+            If true, all services are signaled concurrently.
+        **kwargs
+            Keyword arguments to pass to method.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
+        """
         if concurrent:
             for service in self.values():
-                await service.init(data)
+                f = getattr(service, method or event.name.lower())
+                await f(*args, **kwargs)
             responses = await self.await_all(event)
         else:
             responses = dict.fromkeys(self.keys())
             for name, service in self.items():
-                await service.init(data)
+                f = getattr(service, method or event.name.lower())
+                await f(*args, **kwargs)
                 if self.timeout:
                     data, _ = await asyncio.wait_for(service.on_event(event), self.timeout)
                 else:
@@ -589,47 +750,17 @@ class Services(base.Service, UserDict):
                 responses[service.name] = data
         return responses
 
-    async def cleanup(self, data=None):
-        message = super().cleanup(data)
-        await self.confirmed_send(message)
-
-    async def start(self, exp_ref, data=None):
-        message = super().start(exp_ref, data)
-        await self.confirmed_send(message)
-
-    async def stop(self, data=None, immediately=False):
-        message = super().stop(data)
-        await self.confirmed_send(message)
-
-    async def alyx(self, alyx=None):
+    async def alyx(self, alyx):
         """
-        Send/request Alyx token to/from remote host.
+        Send Alyx token to remote services.
 
         Parameters
         ----------
         alyx : one.webclient.AlyxClient
             An instance of Alyx to extract and send token from.
-
-        Returns
-        -------
-        (str, dict)
-            (If alyx arg was None) the received Alyx token in the form (base_url, {user: token}).
-        (str, int)
-            The hostname and port of the remote host.
         """
-        if alyx:  # send instance to remote host
-            message = super().alyx(alyx)
-            await self.confirmed_send(message)
-        else:  # request instance from remote host
-            loop = asyncio.get_running_loop()
-            fut = loop.create_future()
-            self.assign_callback('ALYX', fut)
-            await self.confirmed_send(('ALYX', None))
-            return fut
-
-    def _iter_services(self, method, *args, **kwargs):
-        for rig in self.values():
-            getattr(rig, method)(*args, **kwargs)
+        for service in self.values():
+            await service.alyx(alyx)
 
 
 async def main(role, server_uri, name=None, **kwargs):

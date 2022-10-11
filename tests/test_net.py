@@ -146,6 +146,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             services['client2'] = app.EchoProtocol
         with self.assertRaises(TypeError):
             services.pop('client1')
+        # Ensure inputs are validated
+        with self.assertRaises(TypeError):
+            app.Services([self.client_1, None])
 
     async def test_close(self):
         """Test Services.close method"""
@@ -212,10 +215,52 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             with self.subTest(client=name):
                 self.assertEqual([42], value)
 
-    @unittest.skip('Unfinished')
-    async def test_await_all(self):
-        """Test for Services.await_all method"""
-        pass
+    async def test_service_methods(self):
+        """Test start, stop, etc. methods.
+
+        For a more complete test, see test_init.
+        """
+        clients = [mock.AsyncMock(spec=app.EchoProtocol), mock.AsyncMock(spec=app.EchoProtocol)]
+        services = app.Services(clients)
+
+        # Init
+        await services.init([42, 'foo'])
+        for client in clients:
+            client.init.assert_awaited_once_with(data=[42, 'foo'])
+
+        # Start
+        ref = '2020-01-01_1_subject'
+        await services.start(ref)
+        for client in clients:
+            client.start.assert_awaited_once_with(ref, data=None)
+
+        # Stop
+        await services.stop(immediately=True)
+        for client in clients:
+            client.stop.assert_awaited_once_with(data=None, immediately=True)
+
+        # Cleanup
+        await services.cleanup(data=[42, 'foo'])
+        for client in clients:
+            client.cleanup.assert_awaited_once_with(data=[42, 'foo'])
+
+        # Alyx
+        alyx = mock.MagicMock()
+        await services.alyx(alyx)
+        for client in clients:
+            client.alyx.assert_awaited_once_with(alyx)
+
+    async def test_sequential_signal(self):
+        """Test for Services._signal method with concurrent=False"""
+        clients = [mock.AsyncMock(spec=app.EchoProtocol), mock.AsyncMock(spec=app.EchoProtocol)]
+        for i, client in enumerate(clients):
+            client.name = f'client_{i}'
+            client.on_event.return_value = ([i], (self.client_1.hostname, self.client_1.port))
+        services = app.Services(clients)
+        responses = await services._signal(base.ExpMessage.EXPINIT, 'init', 'foo', concurrent=False)
+        for client in clients:
+            client.init.assert_awaited_once()
+        self.assertEqual(responses, {'client_0': [0], 'client_1': [1]})
 
     def tearDown(self):
         self.client_1.close()
