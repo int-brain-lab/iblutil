@@ -25,7 +25,7 @@ from types import MappingProxyType
 from collections import UserDict
 from functools import partial
 
-from iblutil.io.net.base import Communicator, LISTEN_PORT, validate_uri, hostname2ip, ExpMessage
+from iblutil.io.net import base
 
 ### REMOVE ###
 from iblutil.util import get_logger
@@ -50,31 +50,44 @@ def _address2tuple(address) -> (str, int):
     int
         The port.
     """
-    server_uri = validate_uri(address, default_port=LISTEN_PORT)
+    server_uri = base.validate_uri(address, default_port=base.LISTEN_PORT)
     parsed_uri = urllib.parse.urlparse(server_uri)
     return parsed_uri.hostname, parsed_uri.port
 
 
-class EchoProtocol(Communicator):
-    """An echo server implementing TCP/IP and UDP"""
+class EchoProtocol(base.Communicator):
+    """An echo server implementing TCP/IP and UDP.
 
-    """asyncio.Server: A network server instance if using TCP/IP"""
+    This should be instantiated using either EchoProtocol.server or EchoProtocol.client.
+    In the client role, the remote address is specified; in the server role, the local address is
+    specified.
+
+    Attributes
+    ----------
+    Server : asyncio.Server
+        A network server instance if using TCP/IP.
+    role : {'client', 'server'}
+        The communicator role.  A server may communicate with multiple clients. The server URI
+        specifies its local address.  A client only communicates with a single host, specified by
+        the server URI.
+    default_echo_timeout : float
+        The default maximum time in seconds to await a message echo.
+    _last_sent : dict[(str, int), (bytes, asyncio.Future)]
+        A map of addresses holding the last sent bytes str and the future being waited on.  In
+        client mode there should only be one entry - the server URI.
+    """
+
     Server = None
     _role = None
-    """bytes: The last sent message when awaiting confirmation of receipt"""
-    _last_sent = None
-    """float: The default echo timeout"""
-    default_echo_timeout = 10.
+    default_echo_timeout = 1.
 
     def __init__(self, server_uri, role, name=None):
+        super().__init__(server_uri, name=name)
         self._transport = None
         self._socket = None
         self.role = role
-        self.server_uri = server_uri
-        self.name = name or self.server_uri
         # For validating echo'd response
-        self._last_sent = None
-        self._echo_future = None
+        self._last_sent = {}
         # Transport specific futures
         loop = asyncio.get_running_loop()
         self.on_connection_lost = loop.create_future()
@@ -116,9 +129,13 @@ class EchoProtocol(Communicator):
         return self._transport and not self._transport.is_closing()
 
     @property
-    def awaiting_response(self) -> bool:
+    def awaiting_response(self, addr=None) -> bool:
         """bool: True if awaiting confirmation of receipt from remote."""
-        return self._last_sent and self._echo_future and not self._echo_future.done()
+        if addr:
+            last_sent = self._last_sent.get(addr, False)
+            return last_sent and not last_sent[1].done()
+        else:
+            return self._last_sent and any(not x[1].done() for x in self._last_sent.values())
 
     async def cleanup(self, data=None):
         message = super().cleanup(data)
@@ -132,7 +149,7 @@ class EchoProtocol(Communicator):
         message = super().stop(data)
         await self.confirmed_send(message)
 
-    async def init(self, data=None):
+    async def init(self, data=None, addr=None):
         """Initialize an experiment.
 
         Send an initialization message to the remote host.
@@ -148,7 +165,7 @@ class EchoProtocol(Communicator):
             Remote host failed to echo the message within the timeout period.
         """
         message = super().init(data)
-        await self.confirmed_send(message)
+        await self.confirmed_send(message, addr=addr)
 
     async def alyx(self, alyx=None):
         """
@@ -190,13 +207,14 @@ class EchoProtocol(Communicator):
 
         Serialize data and pass to transport layer.
         """
-        _logger.debug(f'Send "{data}" to {self.server_uri}')
+        _logger.debug(f'[{self.name}] Send "{data}" to {self.server_uri}')
         if self.protocol == 'udp':
             self._transport.sendto(data, addr or (self.hostname, self.port))
         else:
+            assert not addr
             self._transport.write(self.encode(data))
 
-    async def confirmed_send(self, data, timeout=None):
+    async def confirmed_send(self, data, addr=None, timeout=None):
         """
         Send a message to the client and await echo.
 
@@ -218,24 +236,33 @@ class EchoProtocol(Communicator):
             The response from the client did not match the original message.
         ValueError
             Timeout must be non-zero number.
+            Unexpected remote address: in client mode the address must match server_uri.
+        TypeError
+            In server mode a remote address must be provided.
         """
+        if self.role == 'server':
+            if not addr:
+                raise TypeError('confirmed_send missing 1 required argument: \'addr\'')
+        elif addr and addr != (self.hostname, self.port):
+            raise ValueError('Unexpected remote address')
+        addr = addr or (self.hostname, self.port)
         if not (timeout := timeout or self.default_echo_timeout) > 0:
             raise ValueError('Timeout must be non-zero number')
-        self._last_sent = self.encode(data)
-        self.send(self._last_sent)
+        loop = asyncio.get_running_loop()
+        echo_future = loop.create_future()
+        self._last_sent[addr] = (self.encode(data), echo_future)
+        self.send(self._last_sent[addr][0], addr=addr)
         # Sockets can no longer be blocking, so we'll wait ourselves.
         try:
-            loop = asyncio.get_running_loop()
-            self._echo_future = loop.create_future()
-            await asyncio.wait_for(self._echo_future, timeout=timeout)
+            await asyncio.wait_for(echo_future, timeout=timeout)
         except asyncio.TimeoutError:
             self.close()
             raise TimeoutError('Failed to receive client response in time')
         except RuntimeError:
             self.close()
             raise RuntimeError('Unexpected response from server')
-        self._echo_future = None
-        _logger.debug('Confirmation received')
+        self._last_sent.pop(addr)
+        _logger.debug(f'[{self.name}] Confirmation received')
 
     def close(self):
         """
@@ -249,8 +276,9 @@ class EchoProtocol(Communicator):
             self._transport.close()
 
         super().close()  # Deregister callbacks, cancel event futures
-        if self._echo_future and not self._echo_future.done():
-            self._echo_future.cancel('Close called on communicator')
+        echo_futures = map(lambda x: x[1], self._last_sent.values())
+        for fut in filter(lambda f: not f.done(), echo_futures):
+            fut.cancel('Close called on communicator')
         if self.on_error_received:
             self.on_error_received.cancel('Close called on communicator')
         if self.on_eof_received:
@@ -274,7 +302,7 @@ class EchoProtocol(Communicator):
                 raise RuntimeError('Unsupported transport layer for TCP/IP')
         else:
             raise RuntimeError(f'Unsupported transport layer with socket type "{self._socket.type.name}"')
-        _logger.debug(f'Connected with socket {self._socket}')
+        _logger.debug(f'[{self.name}] Connected with socket {self._socket}')
 
     def _receive(self, data, addr):
         """
@@ -297,24 +325,26 @@ class EchoProtocol(Communicator):
 
         Notes
         -----
-        Callbacks apply only to new messages, not echo responses.  EchoProtocol.confirmed_send
+        - Callbacks apply only to new messages, not echo responses.  EchoProtocol.confirmed_send
         should be awaited, however it is possible to assign a callback for receipt of an echo with
-        EchoProtocol._echo_future.add_done_callback.
-
+        EchoProtocol._last_sent[addr][1].add_done_callback.
+        - Currently this only checks the received message, not its origin.
         """
         host, port = addr[:2]
         msg = data.decode()
-        _logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
-        if self.awaiting_response:
+        _logger.info('[%s] Received %r from %s://%s:%i', self.name, msg, self.protocol, host, port)
+        if last_sent := self._last_sent.get(addr):
+            expected, echo_future = last_sent
             # If echo doesn't match, raise exception
-            if data != self._last_sent:
-                _logger.error('Expected %s from %s, got %s', self._last_sent, self.name, data)
-                self._echo_future.set_exception(RuntimeError)
+            if data != expected:
+                _logger.error('[%s] Expected %s from %s, got %s',
+                              self.name, expected, self.name, data)
+                echo_future.set_exception(RuntimeError)
             else:  # Notify callbacks of receipt
-                self._echo_future.set_result(True)
+                echo_future.set_result(True)
         else:
-            # Update from client
-            _logger.debug('Send %r to %s://%s:%i', msg, self.protocol, host, port)
+            # Update from remote
+            _logger.debug('[%s] Send %r to %s://%s:%i', self.name, msg, self.protocol, host, port)
             self.send(data, addr)  # Echo
             super()._receive(data, addr)  # Process callbacks
 
@@ -322,7 +352,9 @@ class EchoProtocol(Communicator):
         """Called by UDP transport layer"""
         host, port = addr[:2]
         if host != self.hostname:
-            _logger.warning(f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{data}"')
+            _logger.warning(
+                f'[{self.name}] Ignoring UDP packet from unexpected host '
+                '({host}:{port}) with message "{data}"')
         else:
             self._receive(data, addr)
 
@@ -353,7 +385,7 @@ class EchoProtocol(Communicator):
 
         Parameters
         ----------
-        server_uri : str
+        server_uri : str, ipaddress.IPv4Address, ipaddress.IPv6Address
             The address of the remote computer, may be an IP or hostname with or without a port.
             To use TCP/IP instead of the default UDP, add a 'ws://' scheme to the URI.
         name : str
@@ -368,7 +400,7 @@ class EchoProtocol(Communicator):
             A Communicator instance.
         """
         # Validate server URI
-        server_uri = validate_uri(server_uri)
+        server_uri = base.validate_uri(server_uri)
 
         # Get a reference to the event loop
         loop = asyncio.get_running_loop()
@@ -381,7 +413,7 @@ class EchoProtocol(Communicator):
             protocol = EchoProtocol(server_uri, 'server', name=name)
             protocol.Server = await loop.create_server(lambda: protocol, *_address2tuple(server_uri), **kwargs)
 
-        _logger.info(f'Listening on {protocol.server_uri}')
+        _logger.info(f'[{name}] Listening on {protocol.server_uri}')
         return protocol
 
     @staticmethod
@@ -406,7 +438,7 @@ class EchoProtocol(Communicator):
             A Communicator instance.
         """
         # Validate server URI
-        server_uri = validate_uri(server_uri)
+        server_uri = base.validate_uri(server_uri)
 
         # Get a reference to the event loop
         loop = asyncio.get_running_loop()
@@ -420,13 +452,12 @@ class EchoProtocol(Communicator):
         return protocol
 
 
-class Services(UserDict):
-    """Handler for multiple remote rig services"""
+class Services(base.Service, UserDict):
+    """Handler for multiple remote rig services."""
+    # FIXME If user renames underlying protocol, this will not propagate to services
+    __slots__ = ('timeout', 'server')
 
-    """MappingProxyType: map of rig names and their communicator"""
-    _services = None
-
-    def __init__(self, remote_rigs, alyx=None):
+    def __init__(self, remote_rigs, alyx=None, timeout=10.):
         """Handler for multiple remote rig services.
 
         Parameters
@@ -435,15 +466,18 @@ class Services(UserDict):
             A list of remote rig communicator objects.
         alyx : one.webclient.AlyxClient
             An optional Alyx instance to send on request.
+        timeout : float
+            How long to wait for response from client(s).
         """
         # Store rig communicators by name
         super().__init__()
         self.data = MappingProxyType({rig.name: rig for rig in remote_rigs})  # Ensure immutable
+        self.timeout = timeout
 
         # Register callbacks so that if an Alyx instance is requested the provided token is sent.
         if alyx:
             for rig in self.values():
-                rig.assign_callback(ExpMessage.ALYX, lambda _: rig.alyx(alyx))
+                rig.assign_callback(base.ExpMessage.ALYX, lambda _: rig.alyx(alyx))
 
     def assign_callback(self, event, callback, return_service=False):
         """
@@ -458,8 +492,10 @@ class Services(UserDict):
         return_service : bool
             When True an instance of the Communicator is additionally passed to the callback.
         """
+        if return_service:
+            callback = lambda d: callback(d, rig)
         for rig in self.values():
-            rig.assign_callback(event, lambda d: (d, rig) if return_service else callback)
+            rig.assign_callback(event, callback)
 
     def clear_callbacks(self, event):
         """
@@ -488,28 +524,112 @@ class Services(UserDict):
         dict
             A map of rig name and the data that was received.
         """
-        async def _return_data(rig):
-            return rig.name, await rig.on_event(event)
-        event = ExpMessage.validate(event)
-        init_futures = set()
+        responses = {}
+
+        async def _return_data(rig, response) -> None:
+            """Return map of rig name and data so we know origin of data"""
+            data, _ = await response
+            responses[rig.name] = data
+            return response
+
+        event = base.ExpMessage.validate(event)
+        tasks = set()
         for rig in self.values():
-            # init_futures.add(asyncio.create_task(rig.on_event(event)))
-            init_futures.add(asyncio.create_task(_return_data(rig)))
+            task = asyncio.create_task(_return_data(rig, rig.on_event(event)))
+            tasks.add(task)
 
-        all_initialized = await asyncio.gather(*init_futures)
+        if self.timeout:
+            _, pending = await asyncio.wait(
+                tasks, timeout=self.timeout, return_when=asyncio.ALL_COMPLETED
+            )
+            if any(pending):
+                failed = set(self.keys()).difference(responses.keys())
+                raise asyncio.TimeoutError(
+                    f'The following services failed to respond in time: {failed}')
+        else:
+            await asyncio.gather(*tasks)
 
-        # Return map of rig name and data so we know origin of data
-        # data_map = {}
-        # for data, addr in all_initialized:
-        #     host, port = addr
-        #     rig = next(x.name for x in self.values() if x.hostname == host and x.port == port)
-        #     data_map[rig] = data
-        return dict(all_initialized)
+        return responses
 
     def close(self):
         """Close all communication."""
         for rig in self.values():
             rig.close()
+
+    async def init(self, data=None, concurrent=True):
+        """Initialize an experiment.
+
+        Send an initialization message to the remote host.
+
+        Parameters
+        ----------
+        data : any
+            Optional extra data to send to the remote host.
+        concurrent : bool
+            If false, wait for response for each service before communicating with the next.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+        """
+        event = base.ExpMessage['EXPINIT']
+        if concurrent:
+            for service in self.values():
+                await service.init(data)
+            responses = await self.await_all(event)
+        else:
+            responses = dict.fromkeys(self.keys())
+            for name, service in self.items():
+                await service.init(data)
+                if self.timeout:
+                    data, _ = await asyncio.wait_for(service.on_event(event), self.timeout)
+                else:
+                    data, _ = await service.on_event(event)
+                responses[service.name] = data
+        return responses
+
+    async def cleanup(self, data=None):
+        message = super().cleanup(data)
+        await self.confirmed_send(message)
+
+    async def start(self, exp_ref, data=None):
+        message = super().start(exp_ref, data)
+        await self.confirmed_send(message)
+
+    async def stop(self, data=None, immediately=False):
+        message = super().stop(data)
+        await self.confirmed_send(message)
+
+    async def alyx(self, alyx=None):
+        """
+        Send/request Alyx token to/from remote host.
+
+        Parameters
+        ----------
+        alyx : one.webclient.AlyxClient
+            An instance of Alyx to extract and send token from.
+
+        Returns
+        -------
+        (str, dict)
+            (If alyx arg was None) the received Alyx token in the form (base_url, {user: token}).
+        (str, int)
+            The hostname and port of the remote host.
+        """
+        if alyx:  # send instance to remote host
+            message = super().alyx(alyx)
+            await self.confirmed_send(message)
+        else:  # request instance from remote host
+            loop = asyncio.get_running_loop()
+            fut = loop.create_future()
+            self.assign_callback('ALYX', fut)
+            await self.confirmed_send(('ALYX', None))
+            return fut
+
+    def _iter_services(self, method, *args, **kwargs):
+        for rig in self.values():
+            getattr(rig, method)(*args, **kwargs)
 
 
 async def main(role, server_uri, name=None, **kwargs):
@@ -554,7 +674,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='UDP Experiment Communicator.')
     parser.add_argument('role', choices=('server', 'client'),
                         help='communicator role i.e. server or client')
-    parser.add_argument('--host', '-H', help='the host address', default=hostname2ip())
+    parser.add_argument('--host', '-H', help='the host address', default=base.hostname2ip())
     parser.add_argument('--verbose', '-v', action='count', default=0)
     args = parser.parse_args()  # returns data from the options specified
 

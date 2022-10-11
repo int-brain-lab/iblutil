@@ -19,6 +19,7 @@ def from_dict(par_dict):
     par = collections.namedtuple('Params', par_dict.keys())
 
     class IBLParams(par):
+        __slots__ = ()
 
         def set(self, field, value):
             d = as_dict(self)

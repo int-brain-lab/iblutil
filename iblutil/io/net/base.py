@@ -206,119 +206,9 @@ class ExpMessage(IntEnum):
         return event
 
 
-class Communicator(ABC):
-    """A base class for communicating between experimental rigs"""
-
-    """str: An arbitrary label for the remote host"""
-    name = None
-    """int: The default port to use if none is provided"""
-    default_listen_port = LISTEN_PORT
-    """str: The full URI of the remote device, e.g. udp://192.168.0.1:1001"""
-    server_uri = None
-    _callbacks = dict(map(lambda item: (item, []), ExpMessage))
-
-    def assign_callback(self, event, callback):
-        """
-        Assign a callback to be called when an event occurs.
-
-        NB: Unlike with futures, an assigned callback may be triggered multiple times, whereas
-        coroutines may only be set once after which they are cleared.
-
-        Parameters
-        ----------
-        event : str, int, iblutil.io.net.base.ExpMessage
-            The event for which the callback is registered.
-        callback : function, asyncio.Future
-            A function or Future to trigger when an event occurs.
-
-        See Also
-        --------
-        EchoProtocol.receive
-            The method that processes the callbacks upon receiving a message.
-        """
-        event = ExpMessage.validate(event)
-        if not (callable(callback) or isfuture(callback)):
-            raise TypeError('Callback must be callable or a Future')
-        self._callbacks.setdefault(event, []).append(callback)
-
-    def clear_callbacks(self, event, callback=None):
-        """
-        For a given event, remove the provided callback, or all callbacks if none were provided.
-
-        Parameters
-        ----------
-        event : str, int, iblutil.io.net.base.ExpMessage
-            The event for which the callback was registered.
-        callback : function, asyncio.Future
-            The callback or future to remove.
-
-        Returns
-        -------
-        int
-            The number of callbacks removed.
-        """
-        i = 0
-        event = ExpMessage.validate(event)
-        if callback:  # clear specific callback
-            while True:
-                try:
-                    idx = self._callbacks[event].index(callback)
-                    self._callbacks[event].pop(idx)
-                    i += 1
-                except IndexError:
-                    break
-        else:  # clear all callbacks for event
-            i = len(self._callbacks[event])
-            self._callbacks[event] = []
-        return i
-
-    async def on_event(self, event):
-        """
-        Await an event from the remote host.
-
-        Parameters
-        ----------
-        event : str, int, iblutil.io.net.base.ExpMessage
-            The event to wait on.
-
-        Returns
-        -------
-        any
-            The response data returned by the remote host.
-
-        Examples
-        --------
-        >>> data = await com.on_event('EXPSTART')
-
-        >>> event = await asyncio.create_task(com.on_event('EXPSTART'))
-        >>> ...
-        >>> data = await event
-        """
-        loop = asyncio.get_running_loop()
-        fut = loop.create_future()
-        self.assign_callback(event, fut)
-        return fut
-
-    @property
-    def port(self) -> int:
-        """int: the remote port"""
-        return urlparse(self.server_uri).port
-
-    @property
-    def hostname(self) -> str:
-        """str: the remote hostname or IP address"""
-        return urlparse(self.server_uri).hostname
-
-    @property
-    def protocol(self) -> str:
-        """str: the protocol scheme, e.g. udp, ws"""
-        return urlparse(self.server_uri).scheme
-
-    @property
-    @abstractmethod
-    def is_connected(self) -> bool:
-        """bool: True if the remote device is connected"""
-        pass
+class Service(ABC):
+    """An abstract base class for auxiliary experiment services."""
+    __slots__ = 'name'
 
     @abstractmethod
     def init(self, data=None):
@@ -438,6 +328,127 @@ class Communicator(ABC):
         """
         return ExpMessage.ALYX, alyx.base_url, alyx._par.TOKEN
 
+
+class Communicator(Service):
+    """A base class for communicating between experimental rigs.
+
+    Attributes
+    ----------
+    name : str
+        An arbitrary label for the remote host
+    server_uri : str
+        The full URI of the remote device, e.g. udp://192.168.0.1:1001
+    """
+    __slots__ = ('server_uri', '_callbacks')
+
+    def __init__(self, server_uri, name=None):
+        self.server_uri = validate_uri(server_uri)
+        self.name = name or server_uri
+        self._callbacks = dict(map(lambda item: (item, []), ExpMessage))
+
+    def assign_callback(self, event, callback):
+        """
+        Assign a callback to be called when an event occurs.
+
+        NB: Unlike with futures, an assigned callback may be triggered multiple times, whereas
+        coroutines may only be set once after which they are cleared.
+
+        Parameters
+        ----------
+        event : str, int, iblutil.io.net.base.ExpMessage
+            The event for which the callback is registered.
+        callback : function, asyncio.Future
+            A function or Future to trigger when an event occurs.
+
+        See Also
+        --------
+        EchoProtocol.receive
+            The method that processes the callbacks upon receiving a message.
+        """
+        event = ExpMessage.validate(event)
+        if not (callable(callback) or isfuture(callback)):
+            raise TypeError('Callback must be callable or a Future')
+        self._callbacks.setdefault(event, []).append(callback)
+
+    def clear_callbacks(self, event, callback=None):
+        """
+        For a given event, remove the provided callback, or all callbacks if none were provided.
+
+        Parameters
+        ----------
+        event : str, int, iblutil.io.net.base.ExpMessage
+            The event for which the callback was registered.
+        callback : function, asyncio.Future
+            The callback or future to remove.
+
+        Returns
+        -------
+        int
+            The number of callbacks removed.
+        """
+        i = 0
+        event = ExpMessage.validate(event)
+        if callback:  # clear specific callback
+            while True:
+                try:
+                    idx = self._callbacks[event].index(callback)
+                    self._callbacks[event].pop(idx)
+                    i += 1
+                except IndexError:
+                    break
+        else:  # clear all callbacks for event
+            i = len(self._callbacks[event])
+            self._callbacks[event] = []
+        return i
+
+    async def on_event(self, event):
+        """
+        Await an event from the remote host.
+
+        Parameters
+        ----------
+        event : str, int, iblutil.io.net.base.ExpMessage
+            The event to wait on.
+
+        Returns
+        -------
+        any
+            The response data returned by the remote host.
+
+        Examples
+        --------
+        >>> data = await com.on_event('EXPSTART')
+
+        >>> event = await asyncio.create_task(com.on_event('EXPSTART'))
+        >>> ...
+        >>> data = await event
+        """
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+        self.assign_callback(event, fut)
+        return await fut
+
+    @property
+    def port(self) -> int:
+        """int: the remote port"""
+        return urlparse(self.server_uri).port
+
+    @property
+    def hostname(self) -> str:
+        """str: the remote hostname or IP address"""
+        return urlparse(self.server_uri).hostname
+
+    @property
+    def protocol(self) -> str:
+        """str: the protocol scheme, e.g. udp, ws"""
+        return urlparse(self.server_uri).scheme
+
+    @property
+    @abstractmethod
+    def is_connected(self) -> bool:
+        """bool: True if the remote device is connected"""
+        pass
+
     @abstractmethod
     def send(self, data):
         """Serialize and pass data to the transport layer"""
@@ -462,6 +473,8 @@ class Communicator(ABC):
         Warnings
             Expects the deserialized data to be a tuple where the first element is an ExpMessage.
             A warning is thrown if the data is not a tuple, or has fewer than two elements.
+
+        TODO Perhaps for every event only the first future should be set.
         """
         data = self.decode(data)
         if isinstance(data, (list, tuple)) and len(data) > 1:
@@ -469,10 +482,10 @@ class Communicator(ABC):
             for f in self._callbacks[ExpMessage.validate(event)].copy():
                 if isfuture(f):
                     if not f.cancelled():
-                        f.set_result(data)
+                        f.set_result((data, addr))
                     self.clear_callbacks(event, f)  # Remove future from list
                 else:
-                    f(data)
+                    f(data, addr)
         else:
             warnings.warn(f'Expected list, got {data}')
 

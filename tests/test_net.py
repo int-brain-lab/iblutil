@@ -85,10 +85,11 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
 
     async def test_on_event(self):
         """Test on_event method"""
-        task = await asyncio.create_task(self.server.on_event('expinit'))
+        task = asyncio.create_task(self.server.on_event('expinit'))
         await self.client.init(42)
         # r = await task
-        self.assertEqual([42], await task)
+        actual, _ = await task
+        self.assertEqual([42], actual)
 
     def tearDown(self):
         self.client.close()
@@ -123,13 +124,19 @@ class TestWebSockets(unittest.IsolatedAsyncioTestCase):
 class TestServices(unittest.IsolatedAsyncioTestCase):
     """Tests for the app.Services class"""
 
-    def setUp(self):
-        pass
+    # def setUp(self):
+    #     from iblutil.util import get_logger
+    #     get_logger(app.__name__, level=logging.DEBUG)
 
     async def asyncSetUp(self):
-        self.server = await app.EchoProtocol.server('localhost', name='server')
+        # On each acquisition PC
+        self.server_1 = await app.EchoProtocol.server('localhost', name='server')
+        # On main experiment PC
         self.client_1 = await app.EchoProtocol.client('localhost', name='client1')
         self.client_2 = await app.EchoProtocol.client('localhost', name='client2')
+        # For some tests we'll need multiple servers (avoids having to run on multiple threads)
+        self.server_2 = await app.EchoProtocol.server('localhost:1002', name='server2')
+        self.client_3 = await app.EchoProtocol.client('localhost:1002', name='client3')
 
     async def test_type(self):
         """Test that services are immutable"""
@@ -144,18 +151,66 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         """Test Services.close method"""
         clients = [self.client_1, self.client_2]
         assert all(x.is_connected for x in clients)
-        app.Services([self.client_1, self.client_2]).close()
+        app.Services(clients).close()
         self.assertTrue(not any(x.is_connected for x in clients))
 
-    @unittest.skip('Unfinished')
     async def test_assign(self):
         """Tests for Services.assign_callback and Services.clear_callbacks"""
         # Assign a callback for an event
-        callback = mock.MagicMock
-        services = app.Services([self.client_1, self.client_2])
+        callback = mock.MagicMock()
+        clients = (self.client_1, self.client_2)
+        services = app.Services(clients)
         services.assign_callback('EXPINIT', callback)
-        await self.server.init('foo')
-        self.assertTrue(callback().call_count == 2)
+
+        for addr in map(lambda x: x._socket.getsockname(), clients):
+            await self.server_1.init('foo', addr=addr)
+
+        self.assertEqual(2, callback.call_count)
+        callback.assert_called_with(['foo'], ('127.0.0.1', 1001))
+
+    async def test_init(self):
+        """Test init of services.
+
+        Unfortunately this test is convoluted due to the client and server being on the same
+        machine.
+        """
+        clients = (self.client_1, self.client_3)
+        # Require two servers as we'll need two callbacks
+        servers = (self.server_1, self.server_2)
+
+        # Set up the client response callbacks that the server (Services object) will await.
+
+        async def respond(server, fut):
+            """Response callback for the server"""
+            data, addr = await fut
+            await asyncio.sleep(.1)  # FIXME Should be able to somehow used loop.call_soon
+            await server.init(42, addr)
+
+        for server in servers:
+            asyncio.create_task(respond(server, server.on_event(base.ExpMessage.EXPINIT)))
+
+        # Create the services and initialize them, awaiting the callbacks we just set up
+        services = app.Services(clients)
+        responses = await services.init('foo')
+
+        # Test outcomes
+        self.assertFalse(any(map(asyncio.isfuture, responses.values())))
+        for name, value in responses.items():
+            with self.subTest(client=name):
+                self.assertEqual([42], value)
+
+        # Add back the callbacks to test sequential init
+        for server in servers:
+            asyncio.create_task(respond(server, server.on_event(base.ExpMessage.EXPINIT)))
+
+        # Initialize services sequentially, awaiting the callbacks we just set up
+        responses = await services.init('foo', concurrent=False)
+
+        # Test outcomes
+        self.assertFalse(any(map(asyncio.isfuture, responses.values())))
+        for name, value in responses.items():
+            with self.subTest(client=name):
+                self.assertEqual([42], value)
 
     @unittest.skip('Unfinished')
     async def test_await_all(self):
@@ -165,7 +220,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         self.client_1.close()
         self.client_2.close()
-        self.server.close()
+        self.server_1.close()
+        self.server_2.close()
+        self.client_3.close()
 
 
 if __name__ == '__main__':
