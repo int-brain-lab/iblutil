@@ -10,6 +10,8 @@ import urllib.request
 import ipaddress
 from enum import IntEnum
 
+from iblutil.util import get_logger
+
 
 LISTEN_PORT = 1001  # listen for commands on this port
 
@@ -339,11 +341,12 @@ class Communicator(Service):
     server_uri : str
         The full URI of the remote device, e.g. udp://192.168.0.1:1001
     """
-    __slots__ = ('server_uri', '_callbacks')
+    __slots__ = ('server_uri', '_callbacks', 'logger')
 
-    def __init__(self, server_uri, name=None):
+    def __init__(self, server_uri, name=None, logger=None):
         self.server_uri = validate_uri(server_uri)
         self.name = name or server_uri
+        self.logger = logger or get_logger(self.name)
         self._callbacks = dict(map(lambda item: (item, []), ExpMessage))
 
     def assign_callback(self, event, callback):
@@ -399,6 +402,7 @@ class Communicator(Service):
         else:  # clear all callbacks for event
             i = len(self._callbacks[event])
             self._callbacks[event] = []
+        self.logger.debug('[%s] %i callbacks cleared', self.name, i)
         return i
 
     async def on_event(self, event):
@@ -450,7 +454,7 @@ class Communicator(Service):
         pass
 
     @abstractmethod
-    def send(self, data):
+    def send(self, data, addr=None):
         """Serialize and pass data to the transport layer"""
         pass
 
@@ -485,7 +489,13 @@ class Communicator(Service):
                         f.set_result((data, addr))
                     self.clear_callbacks(event, f)  # Remove future from list
                 else:
-                    f(data, addr)
+                    try:
+                        f(data, addr)
+                    except Exception as ex:
+                        self.logger.error('Callback "%s" failed with error "%s"', f, ex)
+                        message = self.encode([ExpMessage.EXPINTERRUPT, f'{type(ex).__name__}: {ex}'])
+                        self.send(message, addr)  # FIXME should be confirmed send
+                        break
         else:
             warnings.warn(f'Expected list, got {data}')
 

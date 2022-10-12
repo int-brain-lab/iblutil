@@ -3,7 +3,6 @@ import logging
 import unittest
 from unittest import mock
 import ipaddress
-from functools import partial
 
 from iblutil.io.net import base, app
 
@@ -60,28 +59,60 @@ class TestBase(unittest.TestCase):
         with self.assertRaises(ValueError):
             base.ExpMessage.validate('EXPSTOP')
 
+    def test_encode(self):
+        """Tests for iblutil.io.net.base.Communicator.encode"""
+        message = [None, 21, 'message']
+        encoded = base.Communicator.encode(message)
+        self.assertEqual(encoded, b'[null, 21, "message"]')
+        self.assertEqual(base.Communicator.encode(encoded), b'[null, 21, "message"]')
+
+    def test_decode(self):
+        """Tests for iblutil.io.net.base.Communicator.decode"""
+        data = b'[null, 21, "message"]'
+        decoded = base.Communicator.decode(data)
+        self.assertEqual(decoded, [None, 21, 'message'])
+        with self.assertWarns(Warning):
+            decoded = base.Communicator.decode(data + b'"')
+            self.assertEqual(decoded, '[null, 21, "message"]"')
+
 
 class TestUDP(unittest.IsolatedAsyncioTestCase):
 
     last_call = None
 
-    def setUp(self):
-        pass
-        # from iblutil.util import get_logger
-        # get_logger(app.__name__, level=logging.DEBUG)
-
     async def asyncSetUp(self):
-        self.server = await app.EchoProtocol.server('localhost')
-        self.client = await app.EchoProtocol.client('localhost')
+        self.server = await app.EchoProtocol.server('localhost', name='server')
+        self.client = await app.EchoProtocol.client('localhost', name='client')
 
     async def test_start(self):
         """Tests confirmed send via start command"""
-        self.server.assign_callback('expstart', partial(self.__setattr__, 'last_call'))
-        with self.assertLogs(app.__name__, logging.INFO) as log:
-            await self.client.start('2022-01-01_1_subject')
-            expected = 'Received \'[20, "2022-01-01_1_subject"'
-            self.assertIn(expected, log.records[-1].message)
-        self.assertEqual('2022-01-01_1_subject', self.last_call[0])
+        # Check socket type
+        self.assertIs(self.server._socket.type, app.socket.SOCK_DGRAM)
+        self.assertIs(self.client._socket.type, app.socket.SOCK_DGRAM)
+
+        spy = mock.MagicMock()
+        self.server.assign_callback('expstart', spy)
+        exp_ref = '2022-01-01_1_subject'
+        with self.assertLogs(self.server.logger, logging.INFO) as log:
+            await self.client.start(exp_ref)
+            self.assertIn(f'Received \'[20, "{exp_ref}", null]', log.records[-1].message)
+        spy.assert_called_with([exp_ref, None], (self.client._socket.getsockname()))
+
+    async def test_callback_error(self):
+        """Tests behaviour when callback raises exception"""
+        callback = mock.MagicMock()
+        callback.side_effect = ValueError('Callback failed')
+
+        self.server.assign_callback('expinit', callback)
+        task = asyncio.create_task(self.server.on_event('expinterrupt'))
+        with self.assertLogs(self.server.logger, logging.ERROR) as log:
+            base.Communicator._receive(self.server, b'[10, null]', self.client._socket.getsockname())
+            self.assertEqual(1, len(log.records))
+            self.assertIn('Callback failed', log.records[-1].message)
+
+        # Check error propagated back to client
+        (err,), _ = await task
+        self.assertIn('Callback failed', err)
 
     async def test_on_event(self):
         """Test on_event method"""
@@ -90,6 +121,14 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         # r = await task
         actual, _ = await task
         self.assertEqual([42], actual)
+
+    def test_communicator(self):
+        """Basic tests for iblutil.io.net.app.EchoProtocol"""
+        # Check role validation
+        with self.assertRaises(ValueError):
+            app.EchoProtocol('localhost', 'foo')
+        with self.assertRaises(AttributeError):
+            self.client.role = 'foo'
 
     def tearDown(self):
         self.client.close()
@@ -110,11 +149,18 @@ class TestWebSockets(unittest.IsolatedAsyncioTestCase):
 
     async def test_start(self):
         """Tests confirmed send via start command"""
-        # TODO Test socket indeed TCP
-        with self.assertLogs(app.__name__, logging.INFO) as log:
-            await self.client.start('2022-01-01_1_subject')
-            expected = 'Received \'[20, "2022-01-01_1_subject"'
-            self.assertIn(expected, log.records[-1].message)
+        # Check socket indeed TCP
+        self.assertIs(self.server._socket.type, app.socket.SOCK_STREAM)
+        self.assertIs(self.client._socket.type, app.socket.SOCK_STREAM)
+
+        spy = mock.MagicMock()
+        self.server.assign_callback('expstart', spy)
+
+        exp_ref = '2022-01-01_1_subject'
+        with self.assertLogs(self.server.logger, logging.INFO) as log:
+            await self.client.start(exp_ref)
+            self.assertIn(f'Received \'[20, "{exp_ref}", null]', log.records[-1].message)
+        spy.assert_called_with([exp_ref, None], (self.client._socket.getsockname()))
 
     def tearDown(self):
         self.client.close()
@@ -186,7 +232,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         async def respond(server, fut):
             """Response callback for the server"""
             data, addr = await fut
-            await asyncio.sleep(.1)  # FIXME Should be able to somehow used loop.call_soon
+            await asyncio.sleep(.1)  # FIXME Should be able to somehow use loop.call_soon
             await server.init(42, addr)
 
         for server in servers:

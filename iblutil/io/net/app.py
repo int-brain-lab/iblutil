@@ -13,25 +13,39 @@ Examples
 ... except asyncio.TimeoutError:
 ...     server.close()
 """
-
+import sys
 import json
 import urllib.parse
 import urllib.request
-import logging
 import asyncio
 import argparse
 import socket
+import logging
 from types import MappingProxyType
 from collections import UserDict
 from functools import partial
 
-from iblutil.io.net import base
+import colorlog
 
-### REMOVE ###
-from iblutil.util import get_logger
-_logger = get_logger(__name__, logging.DEBUG)
-# _logger = logging.getLogger(__name__)
-# _logger.setLevel(logging.DEBUG)
+from iblutil.io.net import base
+from iblutil import util
+
+
+def _setup_log(name, level=logging.INFO):
+    """A colour log with the log name in the format string"""
+    log = logging.getLogger(name)
+    log.setLevel(level)
+
+    log.handlers = []
+    fmt_str = '%(log_color)s' + util.LOG_FORMAT_STR.replace('%(filename)s:%(lineno)d', '%(name)s')
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
+    stream_handler.setFormatter(
+        colorlog.ColoredFormatter(fmt_str, util.LOG_DATE_FORMAT, log_colors=util.LOG_COLORS))
+    stream_handler.name = f'{name}_auto'
+    stream_handler.setLevel(level)
+    log.addHandler(stream_handler)
+    return log
+
 
 def _address2tuple(address) -> (str, int):
     """Convert URI to (host, port) tuple.
@@ -81,8 +95,8 @@ class EchoProtocol(base.Communicator):
     _role = None
     default_echo_timeout = 1.
 
-    def __init__(self, server_uri, role, name=None):
-        super().__init__(server_uri, name=name)
+    def __init__(self, server_uri, role, name=None, logger=None):
+        super().__init__(server_uri, name=name, logger=logger)
         self._transport = None
         self._socket = None
         self.role = role
@@ -128,7 +142,6 @@ class EchoProtocol(base.Communicator):
         """bool: True if transport layer set and open."""
         return self._transport and not self._transport.is_closing()
 
-    @property
     def awaiting_response(self, addr=None) -> bool:
         """bool: True if awaiting confirmation of receipt from remote."""
         if addr:
@@ -253,11 +266,16 @@ class EchoProtocol(base.Communicator):
 
         Serialize data and pass to transport layer.
         """
-        _logger.debug(f'[{self.name}] Send "{data}" to {self.server_uri}')
         if self.protocol == 'udp':
-            self._transport.sendto(data, addr or (self.hostname, self.port))
+            addr = addr or (self.hostname, self.port)
+            self.logger.debug(f'Send "{data}" to udp://{addr[0]}:{addr[1]}')
+            self._transport.sendto(data, addr)
         else:
-            assert not addr
+            addr = addr or self._socket.getpeername()
+            if addr != self._socket.getpeername():
+                self.logger.warning(f'Message not sent: unexpected address {addr}')
+                return
+            self.logger.debug(f'Send "{data}" to {self.protocol}://{addr[0]}:{addr[1]}')
             self._transport.write(self.encode(data))
 
     async def confirmed_send(self, data, addr=None, timeout=None):
@@ -308,7 +326,7 @@ class EchoProtocol(base.Communicator):
             self.close()
             raise RuntimeError('Unexpected response from server')
         self._last_sent.pop(addr)
-        _logger.debug(f'[{self.name}] Confirmation received')
+        self.logger.debug('Confirmation received')
 
     def close(self):
         """
@@ -348,7 +366,7 @@ class EchoProtocol(base.Communicator):
                 raise RuntimeError('Unsupported transport layer for TCP/IP')
         else:
             raise RuntimeError(f'Unsupported transport layer with socket type "{self._socket.type.name}"')
-        _logger.debug(f'[{self.name}] Connected with socket {self._socket}')
+        self.logger.debug(f'Connected with socket {self._socket}')
 
     def _receive(self, data, addr):
         """
@@ -378,19 +396,18 @@ class EchoProtocol(base.Communicator):
         """
         host, port = addr[:2]
         msg = data.decode()
-        _logger.info('[%s] Received %r from %s://%s:%i', self.name, msg, self.protocol, host, port)
+        self.logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
         if last_sent := self._last_sent.get(addr):
             expected, echo_future = last_sent
             # If echo doesn't match, raise exception
             if data != expected:
-                _logger.error('[%s] Expected %s from %s, got %s',
-                              self.name, expected, self.name, data)
+                self.logger.error('Expected %s from %s, got %s', expected, self.name, data)
                 echo_future.set_exception(RuntimeError)
             else:  # Notify callbacks of receipt
                 echo_future.set_result(True)
         else:
             # Update from remote
-            _logger.debug('[%s] Send %r to %s://%s:%i', self.name, msg, self.protocol, host, port)
+            self.logger.debug('Send %r to %s://%s:%i', msg, self.protocol, host, port)
             self.send(data, addr)  # Echo
             super()._receive(data, addr)  # Process callbacks
 
@@ -398,9 +415,8 @@ class EchoProtocol(base.Communicator):
         """Called by UDP transport layer"""
         host, port = addr[:2]
         if host != self.hostname:
-            _logger.warning(
-                f'[{self.name}] Ignoring UDP packet from unexpected host '
-                '({host}:{port}) with message "{data}"')
+            self.logger.warning(
+                f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{data}"')
         else:
             self._receive(data, addr)
 
@@ -410,22 +426,22 @@ class EchoProtocol(base.Communicator):
         self._receive(data, addr)
 
     def error_received(self, exc):
-        _logger.error('Error received:', exc)
+        self.logger.error('Error received:', exc)
         self.on_error_received.set_result(exc)
 
     def eof_received(self):
-        _logger.debug('EOF received')
+        self.logger.debug('EOF received')
         self.on_eof_received.set_result(True)
 
     def connection_lost(self, exc):
-        _logger.info('Connection closed')
+        self.logger.info('Connection closed')
         if getattr(self, 'on_con_lost', False):
             self.on_connection_lost.set_result(exc)
 
     # Factory methods for instantiating a server or client
 
     @staticmethod
-    async def server(server_uri, name=None, **kwargs) -> 'EchoProtocol':
+    async def server(server_uri, name=None, log=None, **kwargs) -> 'EchoProtocol':
         """
         Create a remote server instance.
 
@@ -451,19 +467,22 @@ class EchoProtocol(base.Communicator):
         # Get a reference to the event loop
         loop = asyncio.get_running_loop()
 
+        # Logging
+        log = log or _setup_log(name or server_uri)
+
         # One protocol instance will be created to serve all client requests.
         if server_uri.startswith('udp'):
-            Protocol = partial(EchoProtocol, server_uri, 'server', name=name)
+            Protocol = partial(EchoProtocol, server_uri, 'server', name=name, logger=log)
             _, protocol = await loop.create_datagram_endpoint(Protocol, local_addr=_address2tuple(server_uri), **kwargs)
         else:
-            protocol = EchoProtocol(server_uri, 'server', name=name)
+            protocol = EchoProtocol(server_uri, 'server', name=name, logger=log)
             protocol.Server = await loop.create_server(lambda: protocol, *_address2tuple(server_uri), **kwargs)
 
-        _logger.info(f'[{name}] Listening on {protocol.server_uri}')
+        protocol.logger.info(f'Listening on {protocol.server_uri}')
         return protocol
 
     @staticmethod
-    async def client(server_uri, name=None, **kwargs) -> 'EchoProtocol':
+    async def client(server_uri, name=None, log=None, **kwargs) -> 'EchoProtocol':
         """
         Create a remote client instance.
 
@@ -489,7 +508,10 @@ class EchoProtocol(base.Communicator):
         # Get a reference to the event loop
         loop = asyncio.get_running_loop()
 
-        Protocol = partial(EchoProtocol, server_uri, 'client', name=name)
+        # Logging
+        log = log or _setup_log(name or server_uri)
+
+        Protocol = partial(EchoProtocol, server_uri, 'client', name=name, logger=log)
         if server_uri.startswith('udp'):
             _, protocol = await loop.create_datagram_endpoint(Protocol, remote_addr=_address2tuple(server_uri), **kwargs)
         else:
@@ -540,10 +562,12 @@ class Services(base.Service, UserDict):
         return_service : bool
             When True an instance of the Communicator is additionally passed to the callback.
         """
-        if return_service:
-            callback = lambda d: callback(d, rig)
-        for rig in self.values():
-            rig.assign_callback(event, callback)
+        def _callback(service, data, addr):
+            callback(data, addr, service)
+
+        for service in self.values():
+            cb = partial(_callback, service) if return_service else callback
+            service.assign_callback(event, cb)
 
     def clear_callbacks(self, event):
         """
@@ -808,11 +832,5 @@ if __name__ == '__main__':
     parser.add_argument('--host', '-H', help='the host address', default=base.hostname2ip())
     parser.add_argument('--verbose', '-v', action='count', default=0)
     args = parser.parse_args()  # returns data from the options specified
-
-    if args.verbose > 0:
-        from iblutil.util import get_logger
-
-        get_logger(_logger.name)
-        _logger.setLevel(logging.DEBUG)
 
     asyncio.run(main(args.role, args.host))

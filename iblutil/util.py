@@ -8,6 +8,12 @@ import numpy as np
 
 LOG_FORMAT_STR = '%(asctime)s.%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+LOG_COLORS = {
+    'DEBUG': 'green',
+    'INFO': 'cyan',
+    'WARNING': 'bold_yellow',
+    'ERROR': 'bold_red',
+    'CRITICAL': 'bold_purple'}
 
 
 class Bunch(dict):
@@ -128,13 +134,9 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
         log = logging.getLogger()  # root logger
     else:
         log = logging.getLogger(name)
-    colors = {'DEBUG': 'green',
-              'INFO': 'cyan',
-              'WARNING': 'bold_yellow',
-              'ERROR': 'bold_red',
-              'CRITICAL': 'bold_purple'}
+
     log.setLevel(level)
-    fkwargs = {'no_color': True} if no_color else {'log_colors': colors}
+    fkwargs = {'no_color': True} if no_color else {'log_colors': LOG_COLORS}
     # check existence of stream handlers before adding another
     if not any(map(lambda x: x.name == f'{name}_auto', log.handlers)):
         # need to remove any previous default Stream handler configured on stderr
