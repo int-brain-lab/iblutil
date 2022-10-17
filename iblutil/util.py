@@ -1,6 +1,7 @@
 from pathlib import Path
 import collections
 import colorlog
+import copy
 import logging
 import sys
 
@@ -19,7 +20,7 @@ class Bunch(dict):
 
     def copy(self):
         """Return a new Bunch instance which is a copy of the current Bunch instance."""
-        return Bunch(super(Bunch, self).copy())
+        return Bunch(copy.deepcopy(super(Bunch, self)))
 
     def save(self, npz_file, compress=False):
         """

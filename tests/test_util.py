@@ -11,6 +11,12 @@ from iblutil import util
 
 class TestBunch(unittest.TestCase):
 
+    def test_copy(self):
+        bunch_one = util.Bunch({'test': np.arange(5)})
+        bunch_two = bunch_one.copy()
+        bunch_two['test'][0] = 5
+        np.testing.assert_equal(bunch_one['test'][0], 0)
+
     def test_sync(self):
         """
         This test is just to document current use in libraries in case of refactoring
