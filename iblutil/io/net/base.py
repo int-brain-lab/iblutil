@@ -397,7 +397,7 @@ class Communicator(Service):
                     idx = self._callbacks[event].index(callback)
                     self._callbacks[event].pop(idx)
                     i += 1
-                except IndexError:
+                except (IndexError, ValueError):
                     break
         else:  # clear all callbacks for event
             i = len(self._callbacks[event])
@@ -497,7 +497,7 @@ class Communicator(Service):
                         self.send(message, addr)  # FIXME should be confirmed send
                         break
         else:
-            warnings.warn(f'Expected list, got {data}')
+            warnings.warn(f'Expected list, got {data}', RuntimeWarning)
 
     @staticmethod
     def encode(data) -> bytes:

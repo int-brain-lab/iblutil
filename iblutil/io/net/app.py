@@ -205,7 +205,7 @@ class EchoProtocol(base.Communicator):
         TimeoutError
             Remote host failed to echo the message within the timeout period.
         """
-        message = super().stop(data)
+        message = super().stop(data, immediately=immediately)
         await self.confirmed_send(message)
 
     async def init(self, data=None, addr=None):
@@ -266,6 +266,7 @@ class EchoProtocol(base.Communicator):
 
         Serialize data and pass to transport layer.
         """
+        super().send(data, addr=addr)
         if self.protocol == 'udp':
             addr = addr or (self.hostname, self.port)
             self.logger.debug(f'Send "{data}" to udp://{addr[0]}:{addr[1]}')
@@ -338,6 +339,8 @@ class EchoProtocol(base.Communicator):
         # Close transport
         if self._transport:
             self._transport.close()
+        if self._socket:
+            self._socket.close()
 
         super().close()  # Deregister callbacks, cancel event futures
         echo_futures = map(lambda x: x[1], self._last_sent.values())
@@ -569,7 +572,7 @@ class Services(base.Service, UserDict):
             cb = partial(_callback, service) if return_service else callback
             service.assign_callback(event, cb)
 
-    def clear_callbacks(self, event):
+    def clear_callbacks(self, event, callback=None):
         """
         Clear all callbacks for a given event.
 
@@ -577,10 +580,13 @@ class Services(base.Service, UserDict):
         ----------
         event : str, int, iblutil.io.net.base.ExpMessage
             The event to clear listeners from.
-
+        callback : function, asyncio.Future
+            A specific callback or future to remove.
         """
+        removed = {}
         for rig in self.values():
-            rig.clear_callbacks(event)
+            removed[rig.name] = rig.clear_callbacks(event, callback=callback)
+        return removed
 
     async def await_all(self, event):
         """

@@ -3,6 +3,7 @@ import logging
 import unittest
 from unittest import mock
 import ipaddress
+import socket
 
 from iblutil.io.net import base, app
 
@@ -20,6 +21,8 @@ class TestBase(unittest.TestCase):
         self.assertEqual(expected, base.validate_uri(uri[6:]))
         self.assertEqual(expected.replace('udp', 'ws'), base.validate_uri(uri[6:], default_proc='ws'))
         self.assertEqual(expected, base.validate_uri(uri[:-5], default_port=9999))
+        uri = base.validate_uri(ipaddress.ip_address('192.168.0.1'), default_port=9999)
+        self.assertEqual(expected, uri)
         expected = 'udp://foobar:1001'
         self.assertEqual(expected, base.validate_uri('foobar', resolve_host=False))
         # Check IP resolved
@@ -34,6 +37,8 @@ class TestBase(unittest.TestCase):
                     base.validate_uri(to_validate, resolve_host=False)
         with self.assertRaises(ValueError):
             base.validate_uri(' ', resolve_host=True)
+        with self.assertRaises(TypeError):
+            base.validate_uri(b'localhost')
 
     def test_external_ip(self):
         """Test for external_ip"""
@@ -78,8 +83,6 @@ class TestBase(unittest.TestCase):
 
 class TestUDP(unittest.IsolatedAsyncioTestCase):
 
-    last_call = None
-
     async def asyncSetUp(self):
         self.server = await app.EchoProtocol.server('localhost', name='server')
         self.client = await app.EchoProtocol.client('localhost', name='client')
@@ -115,12 +118,30 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Callback failed', err)
 
     async def test_on_event(self):
-        """Test on_event method"""
+        """Test on_event method as well as init, stop and cleanup"""
+        # INIT
         task = asyncio.create_task(self.server.on_event('expinit'))
         await self.client.init(42)
-        # r = await task
         actual, _ = await task
         self.assertEqual([42], actual)
+
+        # CLEANUP
+        task = asyncio.create_task(self.server.on_event(base.ExpMessage.EXPCLEANUP))
+        await self.client.cleanup(8)
+        actual, _ = await task
+        self.assertEqual([8], actual)
+
+        # STOP
+        task = asyncio.create_task(self.server.on_event('EXPEND'))
+        await self.client.stop('foo')
+        actual, _ = await task
+        self.assertEqual(['foo'], actual)
+
+        # INTERRUPT
+        task = asyncio.create_task(self.server.on_event('expinterrupt'))
+        await self.client.stop('foo', immediately=True)
+        actual, _ = await task
+        self.assertEqual(['foo'], actual)
 
     def test_communicator(self):
         """Basic tests for iblutil.io.net.app.EchoProtocol"""
@@ -130,6 +151,62 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(AttributeError):
             self.client.role = 'foo'
 
+    async def test_receive_validation(self):
+        """Test for behaviour when non-standard message received."""
+        with self.assertWarns(RuntimeWarning), mock.patch.object(self.client, 'send'):
+            self.client._receive(b'foo', (self.server.hostname, self.server.port))
+        addr = (self.server.hostname, self.server.port)
+        fut = asyncio.get_running_loop().create_future()
+        self.client._last_sent[addr] = (b'foo', fut)
+        with self.assertLogs(self.client.name, logging.ERROR):
+            self.client._receive(b'bar', addr)
+        self.assertIsInstance(fut.exception(), RuntimeError)
+        # Upon receiving message from unknown host, should log warning and return
+        with self.assertLogs(self.client.name, logging.WARNING), \
+                mock.patch.object(self.client, '_receive') as receive_mock:
+            self.client.datagram_received(b'foo', ('192.168.0.0', self.server.port))
+            receive_mock.assert_not_called()
+
+    def test_connection_made_validation(self):
+        """Test for connection_made method"""
+        transport = mock.MagicMock()
+        with self.assertRaises(RuntimeError):
+            self.client.connection_made(transport)
+        transport.get_extra_info().type = socket.SOCK_STREAM
+        with self.assertRaises(RuntimeError):
+            self.client.connection_made(transport)
+
+    async def test_awaiting_response(self):
+        self.assertFalse(self.client.awaiting_response())
+        fut = asyncio.get_running_loop().create_future()
+        self.client._last_sent[(self.server.hostname, self.server.port)] = (b'foo', fut)
+        self.assertTrue(self.client.awaiting_response())
+        self.assertFalse(self.client.awaiting_response(addr=('localhost', 8080)))
+        fut.cancel()
+        self.assertFalse(self.client.awaiting_response())
+
+    async def test_close(self):
+        """Test for close/cleanup routine."""
+        self.assertTrue(self.client.is_connected)
+        loop = asyncio.get_running_loop()
+        event_fut = loop.create_future()
+        self.client.assign_callback('EXPCLEANUP', event_fut)
+
+        echo_fut = loop.create_future()
+        addr = (self.server.hostname, self.server.port)
+        self.client._last_sent[addr] = (None, echo_fut)
+        self.client.close()
+
+        self.assertFalse(self.client.is_connected)
+        self.assertTrue(event_fut.cancelled())
+        self.assertTrue(echo_fut.cancelled())
+        self.assertFalse(any(self.client._callbacks.values()))
+        self.assertTrue(self.client._transport.is_closing())
+        self.assertEqual(-1, self.client._socket.fileno())
+        self.assertEqual('Close called on communicator', await self.client.on_connection_lost)
+        self.assertTrue(self.client.on_eof_received.cancelled())
+        self.assertTrue(self.client.on_error_received.cancelled())
+
     def tearDown(self):
         self.client.close()
         self.server.close()
@@ -137,11 +214,6 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
 
 class TestWebSockets(unittest.IsolatedAsyncioTestCase):
     """Test net.app.EchoProtocol with a TCP/IP transport layer"""
-
-    def setUp(self):
-        pass
-        # from iblutil.util import get_logger
-        # get_logger(app.__name__, level=logging.DEBUG)
 
     async def asyncSetUp(self):
         self.server = await app.EchoProtocol.server('ws://localhost:8888')
@@ -162,6 +234,25 @@ class TestWebSockets(unittest.IsolatedAsyncioTestCase):
             self.assertIn(f'Received \'[20, "{exp_ref}", null]', log.records[-1].message)
         spy.assert_called_with([exp_ref, None], (self.client._socket.getsockname()))
 
+    def test_send_validation(self):
+        """Test for Communicator.send method."""
+        message = b'foo'
+        with mock.patch.object(self.client, '_transport') as transport:
+            self.client.send(message)
+            transport.write.assert_called_with(message)
+            transport.write.reset_mock()
+            # Check returns when external address used
+            with self.assertLogs(self.client.name, logging.WARNING):
+                self.client.send(message, addr=('192.168.0.0', 0))
+            transport.write.assert_not_called()
+
+    def test_connection_made_validation(self):
+        """Test for connection_made method"""
+        transport = mock.MagicMock()
+        transport.get_extra_info().type = socket.SOCK_DGRAM
+        with self.assertRaises(RuntimeError):
+            self.client.connection_made(transport)
+
     def tearDown(self):
         self.client.close()
         self.server.close()
@@ -169,10 +260,6 @@ class TestWebSockets(unittest.IsolatedAsyncioTestCase):
 
 class TestServices(unittest.IsolatedAsyncioTestCase):
     """Tests for the app.Services class"""
-
-    # def setUp(self):
-    #     from iblutil.util import get_logger
-    #     get_logger(app.__name__, level=logging.DEBUG)
 
     async def asyncSetUp(self):
         # On each acquisition PC
@@ -216,6 +303,25 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(2, callback.call_count)
         callback.assert_called_with(['foo'], ('127.0.0.1', 1001))
+
+        # Check return_service arg
+        callback2 = mock.MagicMock()
+        services.assign_callback('EXPINIT', callback2, return_service=True)
+        for addr in map(lambda x: x._socket.getsockname(), clients):
+            await self.server_1.init('foo', addr=addr)
+        self.assertEqual(2, callback2.call_count)
+        callback2.assert_called_with(['foo'], ('127.0.0.1', 1001), self.client_2)
+
+        # Check validation
+        with self.assertRaises(TypeError):
+            services.assign_callback('EXPEND', 'foo')
+
+        # Check clear callbacks
+        services.assign_callback('EXPINIT', callback2)
+        removed = services.clear_callbacks('EXPINIT', callback2)
+        self.assertEqual({'client1': 1, 'client2': 1}, removed)
+        removed = services.clear_callbacks('EXPINIT')
+        self.assertEqual({'client1': 2, 'client2': 2}, removed)
 
     async def test_init(self):
         """Test init of services.
