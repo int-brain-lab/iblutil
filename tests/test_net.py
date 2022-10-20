@@ -202,10 +202,10 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(echo_fut.cancelled())
         self.assertFalse(any(self.client._callbacks.values()))
         self.assertTrue(self.client._transport.is_closing())
-        self.assertEqual(-1, self.client._socket.fileno())
         self.assertEqual('Close called on communicator', await self.client.on_connection_lost)
         self.assertTrue(self.client.on_eof_received.cancelled())
         self.assertTrue(self.client.on_error_received.cancelled())
+        # self.assertEqual(-1, self.client._socket.fileno())  # Closed later on in loop
 
     def tearDown(self):
         self.client.close()
@@ -216,8 +216,8 @@ class TestWebSockets(unittest.IsolatedAsyncioTestCase):
     """Test net.app.EchoProtocol with a TCP/IP transport layer"""
 
     async def asyncSetUp(self):
-        self.server = await app.EchoProtocol.server('ws://localhost:8888')
-        self.client = await app.EchoProtocol.client('ws://localhost:8888')
+        self.server = await app.EchoProtocol.server('ws://localhost:8888', name='server')
+        self.client = await app.EchoProtocol.client('ws://localhost:8888', name='client')
 
     async def test_start(self):
         """Tests confirmed send via start command"""

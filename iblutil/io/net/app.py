@@ -31,7 +31,7 @@ from iblutil.io.net import base
 from iblutil import util
 
 
-def _setup_log(name, level=logging.INFO):
+def _setup_log(name, level=logging.DEBUG):
     """A colour log with the log name in the format string"""
     log = logging.getLogger(name)
     log.setLevel(level)
@@ -150,7 +150,7 @@ class EchoProtocol(base.Communicator):
         else:
             return self._last_sent and any(not x[1].done() for x in self._last_sent.values())
 
-    async def cleanup(self, data=None):
+    async def cleanup(self, data=None, addr=None):
         """Cleanup experiment.
 
         Send a cleanup message to the remote host.
@@ -159,6 +159,8 @@ class EchoProtocol(base.Communicator):
         ----------
         data : any
             Optional extra data to send to the remote host.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
 
         Raises
         ------
@@ -166,9 +168,9 @@ class EchoProtocol(base.Communicator):
             Remote host failed to echo the message within the timeout period.
         """
         message = super().cleanup(data)
-        await self.confirmed_send(message)
+        await self.confirmed_send(message, addr=addr)
 
-    async def start(self, exp_ref, data=None):
+    async def start(self, exp_ref, data=None, addr=None):
         """Start an experiment.
 
         Send a stop message to the remote host.
@@ -179,6 +181,8 @@ class EchoProtocol(base.Communicator):
             A experiment reference string in the form yyyy-mm-dd_n_subject.
         data : any
             Optional extra data to send to the remote host.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
 
         Raises
         ------
@@ -186,9 +190,9 @@ class EchoProtocol(base.Communicator):
             Remote host failed to echo the message within the timeout period.
         """
         message = super().start(exp_ref, data)
-        await self.confirmed_send(message)
+        await self.confirmed_send(message, addr=addr)
 
-    async def stop(self, data=None, immediately=False):
+    async def stop(self, data=None, immediately=False, addr=None):
         """End an experiment.
 
         Send a stop message to the remote host.
@@ -199,6 +203,8 @@ class EchoProtocol(base.Communicator):
             Optional extra data to send to the remote host.
         immediately : bool
             If True, an EXPINTERRUPT signal is used.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
 
         Raises
         ------
@@ -206,7 +212,7 @@ class EchoProtocol(base.Communicator):
             Remote host failed to echo the message within the timeout period.
         """
         message = super().stop(data, immediately=immediately)
-        await self.confirmed_send(message)
+        await self.confirmed_send(message, addr=addr)
 
     async def init(self, data=None, addr=None):
         """Initialize an experiment.
@@ -217,6 +223,8 @@ class EchoProtocol(base.Communicator):
         ----------
         data : any
             Optional extra data to send to the remote host.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
 
         Raises
         ------
@@ -226,7 +234,7 @@ class EchoProtocol(base.Communicator):
         message = super().init(data)
         await self.confirmed_send(message, addr=addr)
 
-    async def alyx(self, alyx=None):
+    async def alyx(self, alyx=None, addr=None):
         """
         Send/request Alyx token to/from remote host.
 
@@ -234,6 +242,8 @@ class EchoProtocol(base.Communicator):
         ----------
         alyx : one.webclient.AlyxClient
             An instance of Alyx to extract and send token from.
+        addr : (str, int)
+        The remote host address and port. Only required in server role.
 
         Returns
         -------
@@ -244,12 +254,12 @@ class EchoProtocol(base.Communicator):
         """
         if alyx:  # send instance to remote host
             message = super().alyx(alyx)
-            await self.confirmed_send(message)
+            await self.confirmed_send(message, addr=addr)
         else:  # request instance from remote host
             loop = asyncio.get_running_loop()
             fut = loop.create_future()
             self.assign_callback('ALYX', fut)
-            await self.confirmed_send(('ALYX', None))
+            await self.confirmed_send((base.ExpMessage.ALYX, None), addr=addr)
             return fut
 
     @staticmethod
@@ -290,6 +300,8 @@ class EchoProtocol(base.Communicator):
         ----------
         data : any
             The data to serialize and send to remote host.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
         timeout : float, optional
             The time in seconds to wait for an echo before raising an exception.
 
@@ -327,20 +339,17 @@ class EchoProtocol(base.Communicator):
             self.close()
             raise RuntimeError('Unexpected response from server')
         self._last_sent.pop(addr)
-        self.logger.debug('Confirmation received')
 
     def close(self):
         """
         Close the connection, de-register callbacks and cancel outstanding futures.
 
         The EchoProtocol.on_connection_lost future is resolved at this time, all others are
-        cancelled.
+        cancelled.  NB: Closing the socket should be handled by transport base class later on.
         """
         # Close transport
         if self._transport:
             self._transport.close()
-        if self._socket:
-            self._socket.close()
 
         super().close()  # Deregister callbacks, cancel event futures
         echo_futures = map(lambda x: x[1], self._last_sent.values())
@@ -399,7 +408,6 @@ class EchoProtocol(base.Communicator):
         """
         host, port = addr[:2]
         msg = data.decode()
-        self.logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
         if last_sent := self._last_sent.get(addr):
             expected, echo_future = last_sent
             # If echo doesn't match, raise exception
@@ -407,17 +415,19 @@ class EchoProtocol(base.Communicator):
                 self.logger.error('Expected %s from %s, got %s', expected, self.name, data)
                 echo_future.set_exception(RuntimeError)
             else:  # Notify callbacks of receipt
+                self.logger.info('Confirmation received')
                 echo_future.set_result(True)
         else:
+            self.logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
             # Update from remote
-            self.logger.debug('Send %r to %s://%s:%i', msg, self.protocol, host, port)
+            self.logger.debug('Echo %r to %s://%s:%i', msg, self.protocol, host, port)
             self.send(data, addr)  # Echo
             super()._receive(data, addr)  # Process callbacks
 
     def datagram_received(self, data, addr):
         """Called by UDP transport layer"""
         host, port = addr[:2]
-        if host != self.hostname:
+        if self.role == 'client' and host != self.hostname:
             self.logger.warning(
                 f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{data}"')
         else:
@@ -429,7 +439,7 @@ class EchoProtocol(base.Communicator):
         self._receive(data, addr)
 
     def error_received(self, exc):
-        self.logger.error('Error received:', exc)
+        self.logger.error('Error received: %s', exc)
         self.on_error_received.set_result(exc)
 
     def eof_received(self):
@@ -684,7 +694,7 @@ class Services(base.Service, UserDict):
             Remote host failed to respond within response period.
         """
         event = base.ExpMessage.EXPCLEANUP
-        return await self._signal(event, 'cleanup', data=data, concurrent=concurrent)
+        return await self._signal(event, 'cleanup', data=data, reverse=True, concurrent=concurrent)
 
     async def start(self, exp_ref, data=None, concurrent=True):
         """Start an experiment.
@@ -740,9 +750,9 @@ class Services(base.Service, UserDict):
             Remote host failed to respond within response period.
         """
         event = base.ExpMessage.EXPEND
-        return await self._signal(event, 'stop', data=data, immediately=immediately, **kwargs)
+        return await self._signal(event, 'stop', data=data, immediately=immediately, reverse=True, **kwargs)
 
-    async def _signal(self, event, method, *args, concurrent=True, **kwargs):
+    async def _signal(self, event, method, *args, concurrent=True, reverse=False, **kwargs):
         """Send an event signal to the remote services and await responses.
 
         Parameters
@@ -755,6 +765,8 @@ class Services(base.Service, UserDict):
             Positional arguments to pass to method.
         concurrent : bool
             If true, all services are signaled concurrently.
+        reverse : bool
+            If true, iterate over services in reverse order.
         **kwargs
             Keyword arguments to pass to method.
 
@@ -764,13 +776,13 @@ class Services(base.Service, UserDict):
             A dictionary of service names and the response data received.
         """
         if concurrent:
-            for service in self.values():
+            for service in (reversed(list(self.values())) if reverse else self.values()):
                 f = getattr(service, method or event.name.lower())
                 await f(*args, **kwargs)
             responses = await self.await_all(event)
         else:
             responses = dict.fromkeys(self.keys())
-            for name, service in self.items():
+            for name, service in (reversed(list(self.items())) if reverse else self.items()):
                 f = getattr(service, method or event.name.lower())
                 await f(*args, **kwargs)
                 if self.timeout:
