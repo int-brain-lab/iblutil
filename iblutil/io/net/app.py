@@ -579,8 +579,13 @@ class Services(base.Service, UserDict):
             callback(data, addr, service)
 
         for service in self.values():
-            cb = partial(_callback, service) if return_service else callback
-            service.assign_callback(event, cb)
+            if return_service:
+                cb = partial(_callback, service)
+                # keep track of original callback id
+                cb.id = getattr(callback, 'id', None) or hash(callback)
+                service.assign_callback(event, cb)
+            else:
+                service.assign_callback(event, callback)
 
     def clear_callbacks(self, event, callback=None):
         """

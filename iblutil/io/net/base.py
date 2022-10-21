@@ -392,10 +392,14 @@ class Communicator(Service):
         i = 0
         event = ExpMessage.validate(event)
         if callback:  # clear specific callback
+            # Wrapped callables have an id attribute containing the hash of the inner function
+            ids = [getattr(cb, 'id', None) or hash(cb) for cb in self._callbacks[event]]
+            cb_id = getattr(callback, 'id', None) or hash(callback)
             while True:
                 try:
-                    idx = self._callbacks[event].index(callback)
+                    idx = ids.index(cb_id)
                     self._callbacks[event].pop(idx)
+                    ids.pop(idx)
                     i += 1
                 except (IndexError, ValueError):
                     break

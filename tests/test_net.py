@@ -293,7 +293,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
     async def test_assign(self):
         """Tests for Services.assign_callback and Services.clear_callbacks"""
         # Assign a callback for an event
-        callback = mock.MagicMock()
+        callback = mock.MagicMock(spec_set=True)
         clients = (self.client_1, self.client_2)
         services = app.Services(clients)
         services.assign_callback('EXPINIT', callback)
@@ -305,7 +305,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         callback.assert_called_with(['foo'], ('127.0.0.1', 1001))
 
         # Check return_service arg
-        callback2 = mock.MagicMock()
+        callback2 = mock.MagicMock(spec_set=True)
         services.assign_callback('EXPINIT', callback2, return_service=True)
         for addr in map(lambda x: x._socket.getsockname(), clients):
             await self.server_1.init('foo', addr=addr)
@@ -318,7 +318,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         # Check clear callbacks
         services.assign_callback('EXPINIT', callback2)
-        removed = services.clear_callbacks('EXPINIT', callback2)
+        removed = services.clear_callbacks('EXPINIT', callback)
         self.assertEqual({'client1': 1, 'client2': 1}, removed)
         removed = services.clear_callbacks('EXPINIT')
         self.assertEqual({'client1': 2, 'client2': 2}, removed)
