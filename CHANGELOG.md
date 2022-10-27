@@ -8,3 +8,4 @@
 ### Modified
 
 - optional deep copy of Bunch
+- get_logger renamed to setup_logger; level defaults to NOTSET; level of handlers not set
