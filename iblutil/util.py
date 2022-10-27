@@ -1,6 +1,7 @@
 from pathlib import Path
 import collections
 import colorlog
+import copy
 import logging
 import sys
 
@@ -17,9 +18,27 @@ class Bunch(dict):
         super(Bunch, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
-    def copy(self):
-        """Return a new Bunch instance which is a copy of the current Bunch instance."""
-        return Bunch(super(Bunch, self).copy())
+    def copy(self, deep=False):
+        """Return a new Bunch instance which is a copy of the current Bunch instance.
+
+        Parameters
+        ----------
+        deep : bool
+            If True perform a deep copy (see notes). By default a shallow copy is returned.
+
+        Returns
+        -------
+        Bunch
+            A new copy of the Bunch.
+
+        Notes
+        -----
+        - A shallow copy constructs a new Bunch object and then (to the extent possible) inserts
+        references into it to the objects found in the original.
+        - A deep copy constructs a new Bunch and then, recursively, inserts copies into it of the
+         objects found in the original.
+        """
+        return copy.deepcopy(self) if deep else Bunch(super(Bunch, self).copy())
 
     def save(self, npz_file, compress=False):
         """

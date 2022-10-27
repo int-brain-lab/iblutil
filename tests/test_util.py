@@ -11,6 +11,21 @@ from iblutil import util
 
 class TestBunch(unittest.TestCase):
 
+    def test_copy(self):
+        """Test Bunch.copy method."""
+        # Expect shallow copy by default
+        bunch_one = util.Bunch({'test': np.arange(5)})
+        bunch_two = bunch_one.copy()
+        self.assertIsNot(bunch_one, bunch_two)
+        bunch_two['test'][0] = 5
+        self.assertEqual(5, bunch_one['test'][0])
+        # Expect deep copy
+        bunch_one = util.Bunch({'test': np.arange(5)})
+        bunch_two = bunch_one.copy(deep=True)
+        self.assertIsNot(bunch_one, bunch_two)
+        bunch_two['test'][0] = 5
+        self.assertNotEqual(5, bunch_one['test'][0])
+
     def test_sync(self):
         """
         This test is just to document current use in libraries in case of refactoring
