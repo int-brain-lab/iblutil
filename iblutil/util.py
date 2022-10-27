@@ -1,6 +1,7 @@
 from pathlib import Path
 import collections
 import colorlog
+import copy
 import logging
 import sys
 
@@ -23,9 +24,27 @@ class Bunch(dict):
         super(Bunch, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
-    def copy(self):
-        """Return a new Bunch instance which is a copy of the current Bunch instance."""
-        return Bunch(super(Bunch, self).copy())
+    def copy(self, deep=False):
+        """Return a new Bunch instance which is a copy of the current Bunch instance.
+
+        Parameters
+        ----------
+        deep : bool
+            If True perform a deep copy (see notes). By default a shallow copy is returned.
+
+        Returns
+        -------
+        Bunch
+            A new copy of the Bunch.
+
+        Notes
+        -----
+        - A shallow copy constructs a new Bunch object and then (to the extent possible) inserts
+        references into it to the objects found in the original.
+        - A deep copy constructs a new Bunch and then, recursively, inserts copies into it of the
+         objects found in the original.
+        """
+        return copy.deepcopy(self) if deep else Bunch(super(Bunch, self).copy())
 
     def save(self, npz_file, compress=False):
         """
@@ -116,25 +135,32 @@ def range_str(values: iter) -> str:
     return trial_str
 
 
-def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
-    """
-    Logger to use by default. Sets the name if not set already and add a stream handler
-    If the stream handler already exists, does not duplicate.
+def setup_logger(name='ibl', level=logging.NOTSET, file=None, no_color=False):
+    """Set up a log for IBL packages.
+
     Uses date time, calling function and distinct colours for levels.
-    The naming/level allows not to interfere with third-party libraries when setting level
+    Sets the name if not set already and add a stream handler.
+    If the stream handler already exists, does not duplicate.
+    The naming/level allows not to interfere with third-party libraries when setting level.
 
-    :param name: logger name, should be set to __name__ for consistent logging in the app
-    :param level: defaults to INFO
-    :param file: if not None, will add a File Handler
-    :param no_color: if set to True, removes colorlogs. This is useful when stdout is redirected
-     to a file
-    :return: logger object
+    Parameters
+    ----------
+    name : str
+        Log name, should be set to the root package name for consistent logging throughout the app.
+    level : str, int
+        The logging level (defaults to NOTSET, which inherits the parent log level)
+    file : bool, str, pathlib.Path
+        If True, a file handler is added with the default file location, otherwise a log file path
+        may be passed.
+    no_color : bool
+        If true the colour log is deactivated.  May be useful when directing the std out to a file.
+
+    Returns
+    -------
+    logging.Logger, logging.RootLogger
+        The configured log.
     """
-    if not name:
-        log = logging.getLogger()  # root logger
-    else:
-        log = logging.getLogger(name)
-
+    log = logging.getLogger() if not name else logging.getLogger(name)
     log.setLevel(level)
     fkwargs = {'no_color': True} if no_color else {'log_colors': LOG_COLORS}
     # check existence of stream handlers before adding another
@@ -149,18 +175,17 @@ def get_logger(name='ibl', level=logging.INFO, file=None, no_color=False):
             colorlog.ColoredFormatter('%(log_color)s' + LOG_FORMAT_STR,
                                       LOG_DATE_FORMAT, **fkwargs))
         stream_handler.name = f'{name}_auto'
-        stream_handler.setLevel(level)
         log.addHandler(stream_handler)
     # add the file handler if requested, but check for duplicates
     if not any(map(lambda x: x.name == f'{name}_file', log.handlers)):
         if file is True:
-            log_to_file(log=name, level=level)
-        elif file is not None:
-            log_to_file(filename=file, log=name, level=level)
+            log_to_file(log=name)
+        elif file:
+            log_to_file(filename=file, log=name)
     return log
 
 
-def log_to_file(log='ibllib', filename=None, level=logging.INFO):
+def log_to_file(log='ibl', filename=None):
     """
     Save log information to a given filename in '.ibl_logs' folder (in home directory).
 
@@ -183,7 +208,6 @@ def log_to_file(log='ibllib', filename=None, level=logging.INFO):
     elif not Path(filename).is_absolute():
         filename = Path.home().joinpath('.ibl_logs', filename)
     filename.parent.mkdir(exist_ok=True)
-    log.setLevel(level)
     file_handler = logging.FileHandler(filename)
     file_format = logging.Formatter(LOG_FORMAT_STR, LOG_DATE_FORMAT)
     file_handler.setFormatter(file_format)

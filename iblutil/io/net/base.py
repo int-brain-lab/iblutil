@@ -3,15 +3,13 @@ import re
 import json
 import socket
 import warnings
+import logging
 from asyncio import isfuture
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 import urllib.request
 import ipaddress
 from enum import IntEnum
-
-from iblutil.util import get_logger
-
 
 LISTEN_PORT = 1001  # listen for commands on this port
 
@@ -346,7 +344,7 @@ class Communicator(Service):
     def __init__(self, server_uri, name=None, logger=None):
         self.server_uri = validate_uri(server_uri)
         self.name = name or server_uri
-        self.logger = logger or get_logger(self.name)
+        self.logger = logger or logging.getLogger(self.name)
         self._callbacks = dict(map(lambda item: (item, []), ExpMessage))
 
     def assign_callback(self, event, callback):

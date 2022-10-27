@@ -423,7 +423,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    from iblutil.util import get_logger
-    get_logger(app.__name__, level=logging.DEBUG)
+    from iblutil.util import setup_logger
+    setup_logger(app.__name__, level=logging.DEBUG)
 
     unittest.main()
