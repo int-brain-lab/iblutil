@@ -7,6 +7,9 @@ import socket
 
 from iblutil.io.net import base, app
 
+import sys
+ver = float('%i.%i' % sys.version_info[:2])
+
 
 class TestBase(unittest.TestCase):
     """Test for base network utils.
@@ -81,6 +84,7 @@ class TestBase(unittest.TestCase):
             self.assertEqual(decoded, '[null, 21, "message"]"')
 
 
+@unittest.skipIf(ver < 3.9, 'only version 3.9 or later supported')
 class TestUDP(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
@@ -212,6 +216,7 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         self.server.close()
 
 
+@unittest.skipIf(ver < 3.9, 'only version 3.9 or later supported')
 class TestWebSockets(unittest.IsolatedAsyncioTestCase):
     """Test net.app.EchoProtocol with a TCP/IP transport layer"""
 
@@ -258,6 +263,7 @@ class TestWebSockets(unittest.IsolatedAsyncioTestCase):
         self.server.close()
 
 
+@unittest.skipIf(ver < 3.9, 'only version 3.9 or later supported')
 class TestServices(unittest.IsolatedAsyncioTestCase):
     """Tests for the app.Services class"""
 
