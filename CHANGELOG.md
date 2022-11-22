@@ -4,6 +4,8 @@
 ### Added
 
 - CHANGELOG.md file added
+- net package for communicating between acquisition PCs (3.9 support only)
+- spacer module for task data alignment
 
 ### Modified
 
