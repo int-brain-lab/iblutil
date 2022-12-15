@@ -21,7 +21,7 @@ Example
 import numpy as np
 
 
-class Spacer(object):
+class Spacer:
     def __init__(self, dt_start=.02, dt_end=.4, n_pulses=8, tup=.05):
         """Computes spacer up times using a chirp up and down pattern.
 
@@ -75,7 +75,7 @@ class Spacer(object):
 
         Returns
         -------
-        numpy.ndarray
+        numpy.array
             The template spacer signal.
         """
         t = self.times
@@ -118,6 +118,56 @@ class Spacer(object):
                 output_actions=[],
             )
 
+    def find_spacers_from_fronts(self, fronts, fs=1000):
+        """
+        Given the timestamps and polarities of a digital signal, returns the timestamps of each
+        signal.  This method first finds the locations where there are n consecutive pulses of the
+        correct width then convolves this part of the signal with the template signal.
+
+        This method may be relaxed in order to make it robust to noise in the signal.
+
+        Parameters
+        ----------
+        fronts : dict[str, numpy.array]
+            Dictionary with keys ('times', 'polarities') containing the timestamps and polarities
+            of the signal fronts, respectively.
+        fs : int
+            The sampling frequency of the DAQ signal.
+
+        Returns
+        -------
+        numpy.array
+            The times of the protocol spacer signals.
+        """
+        n_pulses = (self.n_pulses * 2) - 1
+        is_pulse = np.isclose(np.diff(fronts['times']), self.tup, rtol=1e-2)
+        is_pulse = np.insert(is_pulse, 0, False)
+        ind, = np.where(is_pulse)
+
+        # Find consecutive pulses that are the correct length close together
+        max_d = 1.  # look for fronts less than 1 second apart
+        consecutive = np.logical_and(np.diff(ind) == 2, np.diff(fronts['times'][ind]) < max_d)
+        consecutive = np.pad(consecutive, 1, 'constant', constant_values=False)
+        edges, = np.where(~consecutive)
+        spacer_times = []
+        for i in np.arange(edges.size - 1):
+            if edges[i + 1] - edges[i] == n_pulses:  # This could be relaxed to allow for noise
+                idx = np.arange(ind[edges[i]], ind[edges[i + 1] - 1] + 1)  # +1 to include final down
+                t = fronts['times'][idx]
+                ts = np.arange(t[0], t[-1], 1 / fs)  # Evenly resample at given frequency
+                # Reconstruct trace where 1 = high, 0 = low
+                signal = np.zeros_like(ts)
+                ii = np.searchsorted(ts, t, side='left')
+                signal[ii[ii < len(signal)]] = fronts['polarities'][idx[ii < len(signal)]]
+                signal = np.cumsum(signal) + 1  # {-1, 0} -> {0, 1}
+                try:
+                    spacer, = self.find_spacers(signal, fs=fs)
+                    spacer_times.append(spacer + t[0])
+                except IndexError:
+                    continue
+
+        return np.array(spacer_times)
+
     def find_spacers(self, signal, threshold=0.9, fs=1000):
         """
         Find spacers in a voltage time series. Assumes that the signal is a digital signal between
@@ -135,7 +185,7 @@ class Spacer(object):
         Returns
         -------
         numpy.ndarray
-            An array containing the indices of each spacer signal.
+            An array containing the times of each spacer signal relative to the first sample.
         """
         template = self.generate_template(fs=fs)
         xcor = np.correlate(signal, template, mode='full') / np.sum(template)

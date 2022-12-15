@@ -1,5 +1,11 @@
 # Changelog
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.4.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.5.0]
+
+### Added
+
+- method in spacer.Spacer for detecting signal times from a dictionary of TTL polarities and timestamps
+
+## [1.4.0]
 
 ### Added
 
