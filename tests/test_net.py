@@ -26,8 +26,7 @@ class TestBase(unittest.TestCase):
         self.assertEqual(expected, base.validate_uri(uri[:-5], default_port=9999))
         uri = base.validate_uri(ipaddress.ip_address('192.168.0.1'), default_port=9999)
         self.assertEqual(expected, uri)
-        expected = 'udp://foobar:1001'
-        self.assertEqual(expected, base.validate_uri('foobar', resolve_host=False))
+        self.assertEqual('udp://foobar:10001', base.validate_uri('foobar', resolve_host=False))
         # Check IP resolved
         uri = base.validate_uri('http://google.com:80', resolve_host=True)
         expected = (ipaddress.IPv4Address, ipaddress.IPv6Address)
@@ -274,8 +273,8 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.client_1 = await app.EchoProtocol.client('localhost', name='client1')
         self.client_2 = await app.EchoProtocol.client('localhost', name='client2')
         # For some tests we'll need multiple servers (avoids having to run on multiple threads)
-        self.server_2 = await app.EchoProtocol.server('localhost:1002', name='server2')
-        self.client_3 = await app.EchoProtocol.client('localhost:1002', name='client3')
+        self.server_2 = await app.EchoProtocol.server('localhost:10002', name='server2')
+        self.client_3 = await app.EchoProtocol.client('localhost:10002', name='client3')
 
     async def test_type(self):
         """Test that services are immutable"""
@@ -308,7 +307,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             await self.server_1.init('foo', addr=addr)
 
         self.assertEqual(2, callback.call_count)
-        callback.assert_called_with(['foo'], ('127.0.0.1', 1001))
+        callback.assert_called_with(['foo'], ('127.0.0.1', 10001))
 
         # Check return_service arg
         callback2 = mock.MagicMock(spec_set=True)
@@ -316,7 +315,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         for addr in map(lambda x: x._socket.getsockname(), clients):
             await self.server_1.init('foo', addr=addr)
         self.assertEqual(2, callback2.call_count)
-        callback2.assert_called_with(['foo'], ('127.0.0.1', 1001), self.client_2)
+        callback2.assert_called_with(['foo'], ('127.0.0.1', 10001), self.client_2)
 
         # Check validation
         with self.assertRaises(TypeError):

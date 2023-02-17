@@ -11,7 +11,7 @@ import urllib.request
 import ipaddress
 from enum import IntEnum
 
-LISTEN_PORT = 1001  # listen for commands on this port
+LISTEN_PORT = 10001  # listen for commands on this port
 
 
 def external_ip():
