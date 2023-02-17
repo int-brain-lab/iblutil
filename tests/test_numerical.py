@@ -4,6 +4,18 @@ import iblutil.numerical as num
 import numpy as np
 
 
+class TestRcoeff(unittest.TestCase):
+
+    def test_rcoeff(self):
+        x = np.random.rand(2, 1000)
+        y = x[0, :]
+        r = np.corrcoef(x[1, :], y)
+        assert num.rcoeff(x[0, :], y) == 1
+        assert np.isclose(num.rcoeff(x[1, :], y), r[1, 0])
+        assert np.all(np.isclose(num.rcoeff(x, y), r[0, :]))
+        assert np.all(np.isclose(num.rcoeff(y, x), r[0, :]))
+
+
 class TestBetweeenSorted(unittest.TestCase):
 
     def test_between_sorted_single_time(self):
