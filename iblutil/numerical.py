@@ -118,6 +118,25 @@ def find_first_2d(mat, val):
             return i
 
 
+def rcoeff(x, y):
+    """
+    Computes pairwise Person correlation coefficients for matrices.
+    That is for 2 matrices the same size, computes the row to row coefficients and outputs
+    a vector corresponding to the number of rows of the first matrix
+    If the second array is a vector then computes the correlation coefficient for all rows
+    :param x: np array [nc, ns]
+    :param y: np array [nc, ns] or [ns]
+    :return: r [nc]
+    """
+    def normalize(z):
+        mean = np.mean(z, axis=-1)
+        return z - mean if mean.size == 1 else z - mean[:, np.newaxis]
+    xnorm = normalize(x)
+    ynorm = normalize(y)
+    rcor = np.sum(xnorm * ynorm, axis=-1) / np.sqrt(np.sum(np.square(xnorm), axis=-1) * np.sum(np.square(ynorm), axis=-1))
+    return rcor
+
+
 def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
                   mode: str = 'vector', dtype: Type[D] = 'int8') -> np.ndarray:
     """
