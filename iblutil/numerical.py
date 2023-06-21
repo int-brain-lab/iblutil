@@ -3,7 +3,7 @@ from typing import TypeVar, Sequence, Union, Optional, Type
 import numpy as np
 from numba import jit
 
-D = TypeVar('D', bound=np.generic)
+D = TypeVar("D", bound=np.generic)
 Array = Union[np.ndarray, Sequence]
 
 
@@ -26,7 +26,7 @@ def between_sorted(sorted_v, bounds=None):
     stops = stops[sbounds]
     sel = sorted_v * 0
     sel[np.searchsorted(sorted_v, starts)] = 1
-    istops = np.searchsorted(sorted_v, stops, side='right')
+    istops = np.searchsorted(sorted_v, stops, side="right")
     sel[istops[istops < sorted_v.size]] += -1
     return np.cumsum(sel).astype(bool)
 
@@ -93,11 +93,13 @@ def intersect2d(a0, a1, assume_unique=False):
     :return: index of a0 such as intersection = a0[ia, :]
     :return: index of b0 such as intersection = b0[ib, :]
     """
-    _, i0, i1 = np.intersect1d(a0[:, 0], a1[:, 0],
-                               return_indices=True, assume_unique=assume_unique)
+    _, i0, i1 = np.intersect1d(
+        a0[:, 0], a1[:, 0], return_indices=True, assume_unique=assume_unique
+    )
     for n in np.arange(1, a0.shape[1]):
-        _, ii0, ii1 = np.intersect1d(a0[i0, n], a1[i1, n],
-                                     return_indices=True, assume_unique=assume_unique)
+        _, ii0, ii1 = np.intersect1d(
+            a0[i0, n], a1[i1, n], return_indices=True, assume_unique=assume_unique
+        )
         i0 = i0[ii0]
         i1 = i1[ii1]
     return a0[i0, :], i0, i1
@@ -188,17 +190,26 @@ def rcoeff(x, y):
     :param y: np array [nc, ns] or [ns]
     :return: r [nc]
     """
+
     def normalize(z):
         mean = np.mean(z, axis=-1)
         return z - mean if mean.size == 1 else z - mean[:, np.newaxis]
+
     xnorm = normalize(x)
     ynorm = normalize(y)
-    rcor = np.sum(xnorm * ynorm, axis=-1) / np.sqrt(np.sum(np.square(xnorm), axis=-1) * np.sum(np.square(ynorm), axis=-1))
+    rcor = np.sum(xnorm * ynorm, axis=-1) / np.sqrt(
+        np.sum(np.square(xnorm), axis=-1) * np.sum(np.square(ynorm), axis=-1)
+    )
     return rcor
 
 
-def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
-                  mode: str = 'vector', dtype: Type[D] = 'int8') -> np.ndarray:
+def within_ranges(
+    x: np.ndarray,
+    ranges: Array,
+    labels: Optional[Array] = None,
+    mode: str = "vector",
+    dtype: Type[D] = "int8",
+) -> np.ndarray:
     """
     Detects which points of the input vector lie within one of the ranges specified in the ranges.
     Returns an array the size of x with a 1 if the corresponding point is within a range.
@@ -280,10 +291,10 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
 
     if labels is None:
         # In 'matrix' mode default row index is 0
-        labels = np.zeros((n_ranges,), dtype='uint32')
-        if mode == 'vector':  # Otherwise default numerical label is 1
+        labels = np.zeros((n_ranges,), dtype="uint32")
+        if mode == "vector":  # Otherwise default numerical label is 1
             labels += 1
-    assert len(labels) >= n_ranges, 'range labels do not match number of ranges'
+    assert len(labels) >= n_ranges, "range labels do not match number of ranges"
     n_labels = np.unique(labels).size
 
     # If no ranges given, short circuit function and return zeros
@@ -291,7 +302,9 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
         return np.zeros_like(x, dtype=dtype)
 
     # Check end comes after start in each case
-    assert np.all(np.diff(ranges, axis=1) > 0), 'ranges ends must all be greater than starts'
+    assert np.all(
+        np.diff(ranges, axis=1) > 0
+    ), "ranges ends must all be greater than starts"
 
     # Make array containing points, starts and finishes
 
@@ -299,13 +312,13 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
     to_sort = np.concatenate((ranges[:, 0], x, ranges[:, 1]))
     # worst case O(n*log(n)) but will be better than this as most of the array is ordered;
     # memory overhead ~n/2
-    idx = np.argsort(to_sort, kind='stable')
+    idx = np.argsort(to_sort, kind="stable")
 
     # Make delta array containing 1 for every start and -1 for every stop
     # with one row for each range label
-    if mode == 'matrix':
+    if mode == "matrix":
         delta_shape = (n_labels, n_points + 2 * n_ranges)
-        delta = np.zeros(delta_shape, dtype='int8')
+        delta = np.zeros(delta_shape, dtype="int8")
 
         delta[labels, np.arange(n_ranges)] = 1
         delta[labels, n_points + n_ranges + np.arange(n_ranges)] = -1
@@ -321,9 +334,9 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
         reordered[:, idx] = summed.reshape(delta_shape[0], -1)
         return reordered[:, np.arange(n_ranges, n_points + n_ranges)]
 
-    elif mode == 'vector':
+    elif mode == "vector":
         delta_shape = (n_points + 2 * n_ranges,)
-        r_delta = np.zeros(delta_shape, dtype='int32')
+        r_delta = np.zeros(delta_shape, dtype="int32")
         r_delta[np.arange(n_ranges)] = labels
         r_delta[n_points + n_ranges + np.arange(n_ranges)] = -labels
 
