@@ -5,7 +5,6 @@ import numpy as np
 
 
 class TestRcoeff(unittest.TestCase):
-
     def test_rcoeff(self):
         x = np.random.rand(2, 1000)
         y = x[0, :]
@@ -17,13 +16,14 @@ class TestRcoeff(unittest.TestCase):
 
 
 class TestBetweeenSorted(unittest.TestCase):
-
     def test_between_sorted_single_time(self):
         # test single time, falling right on edges
         t = np.arange(100)
         bounds = [10, 25]
         ind = num.between_sorted(t, bounds)
-        assert np.all(t[ind] == np.arange(int(np.ceil(bounds[0])), int(np.floor(bounds[1] + 1))))
+        assert np.all(
+            t[ind] == np.arange(int(np.ceil(bounds[0])), int(np.floor(bounds[1] + 1)))
+        )
         # test single time in between edges
         bounds = [10.4, 25.2]
         ind = num.between_sorted(t, bounds)
@@ -36,23 +36,31 @@ class TestBetweeenSorted(unittest.TestCase):
         t = np.arange(100)
         # non overlapping ranges
         bounds = np.array([[10.4, 25.2], [67.2, 86.4]])
-        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
+        ind_ = np.logical_or(
+            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
+        )
         ind = num.between_sorted(t, bounds)
         assert np.all(ind == ind_)
         # overlapping ranges
         bounds = np.array([[10.4, 83.2], [67.2, 86.4]])
-        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
+        ind_ = np.logical_or(
+            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
+        )
         ind = num.between_sorted(t, bounds)
         assert np.all(ind == ind_)
         # one range contains the other
         bounds = np.array([[10.4, 83.2], [34, 78]])
-        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
+        ind_ = np.logical_or(
+            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
+        )
         ind = num.between_sorted(t, bounds)
         assert np.all(ind == ind_)
         # case when one range starts exactly where another stops
         bounds = np.array([[10.4, 83.2], [83.2, 84]])
         ind = num.between_sorted(t, bounds)
-        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
+        ind_ = np.logical_or(
+            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
+        )
         assert np.all(ind == ind_)
 
     def test_between_sorted_out_of_range(self):
@@ -64,7 +72,6 @@ class TestBetweeenSorted(unittest.TestCase):
 
 
 class TestIsmember(unittest.TestCase):
-
     def test_ismember2d(self):
         b = np.reshape([0, 0, 0, 1, 1, 1], [3, 2])
         locb = np.array([0, 1, 0, 2, 2, 1])
@@ -80,8 +87,12 @@ class TestIsmember(unittest.TestCase):
         a = np.random.randint(0, nb + 3, na)
         b = np.arange(nb)
         lia, locb = num.ismember(a, b)
-        bb = np.random.randint(low=np.iinfo(np.int64).min, high=np.iinfo(np.int64).max,
-                               size=(nb, 2), dtype=np.int64)
+        bb = np.random.randint(
+            low=np.iinfo(np.int64).min,
+            high=np.iinfo(np.int64).max,
+            size=(nb, 2),
+            dtype=np.int64,
+        )
         aa = np.zeros((na, 2), dtype=np.int64)
         aa[lia, :] = bb[locb, :]
         lia_, locb_ = num.ismember2d(aa, bb)
@@ -127,27 +138,38 @@ class TestWithinRanges(unittest.TestCase):
 
         # Matrix mode
         ranges = np.array([[1, 2], [5, 8]])
-        verifiable = num.within_ranges(np.arange(10) + 1, ranges,
-                                       labels=np.array([0, 1]), mode='matrix')
-        expected = np.array([[1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-                             [0, 0, 0, 0, 1, 1, 1, 1, 0, 0]], dtype=int)
+        verifiable = num.within_ranges(
+            np.arange(10) + 1, ranges, labels=np.array([0, 1]), mode="matrix"
+        )
+        expected = np.array(
+            [[1, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1, 0, 0]], dtype=int
+        )
         np.testing.assert_array_equal(verifiable, expected)
 
         # Test overlap
-        verifiable = num.within_ranges(np.arange(11), [(1, 2), (5, 8), (4, 6)],
-                                       labels=[0, 1, 1], mode='matrix')
-        expected = np.array([[0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-                             [0, 0, 0, 0, 1, 2, 2, 1, 1, 0, 0]], dtype=int)
+        verifiable = num.within_ranges(
+            np.arange(11), [(1, 2), (5, 8), (4, 6)], labels=[0, 1, 1], mode="matrix"
+        )
+        expected = np.array(
+            [[0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 2, 2, 1, 1, 0, 0]],
+            dtype=int,
+        )
         np.testing.assert_array_equal(verifiable, expected)
 
         # Vector mode
-        verifiable = num.within_ranges(np.arange(10) + 1, ranges, np.array([3, 1]), mode='vector')
+        verifiable = num.within_ranges(
+            np.arange(10) + 1, ranges, np.array([3, 1]), mode="vector"
+        )
         expected = np.array([3, 3, 0, 0, 1, 1, 1, 1, 0, 0], dtype=int)
         np.testing.assert_array_equal(verifiable, expected)
 
         # Boolean
-        verifiable = num.within_ranges(np.arange(11), [(1, 2), (5, 8), (4, 6)], dtype=bool)
-        expected = np.array([False, True, True, False, True, True, True, True, True, False, False])
+        verifiable = num.within_ranges(
+            np.arange(11), [(1, 2), (5, 8), (4, 6)], dtype=bool
+        )
+        expected = np.array(
+            [False, True, True, False, True, True, True, True, True, False, False]
+        )
         np.testing.assert_array_equal(verifiable, expected)
 
         # Edge cases
@@ -156,4 +178,45 @@ class TestWithinRanges(unittest.TestCase):
         np.testing.assert_array_equal(verifiable, expected)
 
         with self.assertRaises(ValueError):
-            num.within_ranges(np.arange(11), [(1, 2)], mode='array')
+            num.within_ranges(np.arange(11), [(1, 2)], mode="array")
+
+
+class TestBincount2D(unittest.TestCase):
+    def test_bincount_2d(self):
+        # first test simple with indices
+        x = np.array([0, 1, 1, 2, 2, 3, 3, 3])
+        y = np.array([3, 2, 2, 1, 1, 0, 0, 0])
+        r, xscale, yscale = num.bincount2D(x, y, xbin=1, ybin=1)
+        r_ = np.zeros_like(r)
+        # sometimes life would have been simpler in c:
+        for ix, iy in zip(x, y):
+            r_[iy, ix] += 1
+        self.assertTrue(np.all(np.equal(r_, r)))
+        # test with negative values
+        y = np.array([3, 2, 2, 1, 1, 0, 0, 0]) - 5
+        r, xscale, yscale = num.bincount2D(x, y, xbin=1, ybin=1)
+        self.assertTrue(np.all(np.equal(r_, r)))
+        # test unequal bins
+        r, xscale, yscale = num.bincount2D(x / 2, y / 2, xbin=1, ybin=2)
+        r_ = np.zeros_like(r)
+        for ix, iy in zip(np.floor(x / 2), np.floor((y / 2 + 2.5) / 2)):
+            r_[int(iy), int(ix)] += 1
+        self.assertTrue(np.all(r_ == r))
+        # test with weights
+        w = np.ones_like(x) * 2
+        r, xscale, yscale = num.bincount2D(x / 2, y / 2, xbin=1, ybin=2, weights=w)
+        self.assertTrue(np.all(r_ * 2 == r))
+        # test aggregation instead of binning
+        x = np.array([0, 1, 1, 2, 2, 4, 4, 4])
+        y = np.array([4, 2, 2, 1, 1, 0, 0, 0])
+        r, xscale, yscale = num.bincount2D(x, y)
+        self.assertTrue(
+            np.all(xscale == yscale) and np.all(xscale == np.array([0, 1, 2, 4]))
+        )
+        # test aggregation on a fixed scale
+        r, xscale, yscale = num.bincount2D(
+            x + 10, y + 10, xbin=np.arange(5) + 10, ybin=np.arange(3) + 10
+        )
+        self.assertTrue(np.all(xscale == np.arange(5) + 10))
+        self.assertTrue(np.all(yscale == np.arange(3) + 10))
+        self.assertTrue(np.all(r.shape == (3, 5)))

@@ -3,7 +3,7 @@ from typing import TypeVar, Sequence, Union, Optional, Type
 import numpy as np
 from numba import jit
 
-D = TypeVar('D', bound=np.generic)
+D = TypeVar("D", bound=np.generic)
 Array = Union[np.ndarray, Sequence]
 
 
@@ -26,7 +26,7 @@ def between_sorted(sorted_v, bounds=None):
     stops = stops[sbounds]
     sel = sorted_v * 0
     sel[np.searchsorted(sorted_v, starts)] = 1
-    istops = np.searchsorted(sorted_v, stops, side='right')
+    istops = np.searchsorted(sorted_v, stops, side="right")
     sel[istops[istops < sorted_v.size]] += -1
     return np.cumsum(sel).astype(bool)
 
@@ -93,14 +93,76 @@ def intersect2d(a0, a1, assume_unique=False):
     :return: index of a0 such as intersection = a0[ia, :]
     :return: index of b0 such as intersection = b0[ib, :]
     """
-    _, i0, i1 = np.intersect1d(a0[:, 0], a1[:, 0],
-                               return_indices=True, assume_unique=assume_unique)
+    _, i0, i1 = np.intersect1d(
+        a0[:, 0], a1[:, 0], return_indices=True, assume_unique=assume_unique
+    )
     for n in np.arange(1, a0.shape[1]):
-        _, ii0, ii1 = np.intersect1d(a0[i0, n], a1[i1, n],
-                                     return_indices=True, assume_unique=assume_unique)
+        _, ii0, ii1 = np.intersect1d(
+            a0[i0, n], a1[i1, n], return_indices=True, assume_unique=assume_unique
+        )
         i0 = i0[ii0]
         i1 = i1[ii1]
     return a0[i0, :], i0, i1
+
+
+def bincount2D(x, y, xbin=0, ybin=0, xlim=None, ylim=None, weights=None):
+    """
+    Computes a 2D histogram by aggregating values in a 2D array.
+
+    :param x: values to bin along the 2nd dimension (c-contiguous)
+    :param y: values to bin along the 1st dimension
+    :param xbin:
+        scalar: bin size along 2nd dimension
+        0: aggregate according to unique values
+        array: aggregate according to exact values (count reduce operation)
+    :param ybin:
+        scalar: bin size along 1st dimension
+        0: aggregate according to unique values
+        array: aggregate according to exact values (count reduce operation)
+    :param xlim: (optional) 2 values (array or list) that restrict range along 2nd dimension
+    :param ylim: (optional) 2 values (array or list) that restrict range along 1st dimension
+    :param weights: (optional) defaults to None, weights to apply to each value for aggregation
+    :return: 3 numpy arrays MAP [ny,nx] image, xscale [nx], yscale [ny]
+    """
+    # if no bounds provided, use min/max of vectors
+    if xlim is None:
+        xlim = [np.min(x), np.max(x)]
+    if ylim is None:
+        ylim = [np.min(y), np.max(y)]
+
+    def _get_scale_and_indices(v, bin, lim):
+        # if bin is a nonzero scalar, this is a bin size: create scale and indices
+        if np.isscalar(bin) and bin != 0:
+            scale = np.arange(lim[0], lim[1] + bin / 2, bin)
+            ind = (np.floor((v - lim[0]) / bin)).astype(np.int64)
+        # if bin == 0, aggregate over unique values
+        else:
+            scale, ind = np.unique(v, return_inverse=True)
+        return scale, ind
+
+    xscale, xind = _get_scale_and_indices(x, xbin, xlim)
+    yscale, yind = _get_scale_and_indices(y, ybin, ylim)
+    # aggregate by using bincount on absolute indices for a 2d array
+    nx, ny = [xscale.size, yscale.size]
+    ind2d = np.ravel_multi_index(np.c_[yind, xind].transpose(), dims=(ny, nx))
+    r = np.bincount(ind2d, minlength=nx * ny, weights=weights).reshape(ny, nx)
+
+    # if a set of specific values is requested output an array matching the scale dimensions
+    if not np.isscalar(xbin) and xbin.size > 1:
+        _, iout, ir = np.intersect1d(xbin, xscale, return_indices=True)
+        _r = r.copy()
+        r = np.zeros((ny, xbin.size))
+        r[:, iout] = _r[:, ir]
+        xscale = xbin
+
+    if not np.isscalar(ybin) and ybin.size > 1:
+        _, iout, ir = np.intersect1d(ybin, yscale, return_indices=True)
+        _r = r.copy()
+        r = np.zeros((ybin.size, r.shape[1]))
+        r[iout, :] = _r[ir, :]
+        yscale = ybin
+
+    return r, xscale, yscale
 
 
 @jit(nopython=True)
@@ -120,25 +182,35 @@ def find_first_2d(mat, val):
 
 def rcoeff(x, y):
     """
-    Computes pairwise Person correlation coefficients for matrices.
+    Computes pairwise Pearson correlation coefficients for matrices.
+
     That is for 2 matrices the same size, computes the row to row coefficients and outputs
-    a vector corresponding to the number of rows of the first matrix
-    If the second array is a vector then computes the correlation coefficient for all rows
+    a vector corresponding to the number of rows of the first matrix.
+    If the second array is a vector then computes the correlation coefficient for all rows.
     :param x: np array [nc, ns]
     :param y: np array [nc, ns] or [ns]
     :return: r [nc]
     """
+
     def normalize(z):
         mean = np.mean(z, axis=-1)
         return z - mean if mean.size == 1 else z - mean[:, np.newaxis]
+
     xnorm = normalize(x)
     ynorm = normalize(y)
-    rcor = np.sum(xnorm * ynorm, axis=-1) / np.sqrt(np.sum(np.square(xnorm), axis=-1) * np.sum(np.square(ynorm), axis=-1))
+    rcor = np.sum(xnorm * ynorm, axis=-1) / np.sqrt(
+        np.sum(np.square(xnorm), axis=-1) * np.sum(np.square(ynorm), axis=-1)
+    )
     return rcor
 
 
-def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
-                  mode: str = 'vector', dtype: Type[D] = 'int8') -> np.ndarray:
+def within_ranges(
+    x: np.ndarray,
+    ranges: Array,
+    labels: Optional[Array] = None,
+    mode: str = "vector",
+    dtype: Type[D] = "int8",
+) -> np.ndarray:
     """
     Detects which points of the input vector lie within one of the ranges specified in the ranges.
     Returns an array the size of x with a 1 if the corresponding point is within a range.
@@ -220,10 +292,10 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
 
     if labels is None:
         # In 'matrix' mode default row index is 0
-        labels = np.zeros((n_ranges,), dtype='uint32')
-        if mode == 'vector':  # Otherwise default numerical label is 1
+        labels = np.zeros((n_ranges,), dtype="uint32")
+        if mode == "vector":  # Otherwise default numerical label is 1
             labels += 1
-    assert len(labels) >= n_ranges, 'range labels do not match number of ranges'
+    assert len(labels) >= n_ranges, "range labels do not match number of ranges"
     n_labels = np.unique(labels).size
 
     # If no ranges given, short circuit function and return zeros
@@ -231,7 +303,9 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
         return np.zeros_like(x, dtype=dtype)
 
     # Check end comes after start in each case
-    assert np.all(np.diff(ranges, axis=1) > 0), 'ranges ends must all be greater than starts'
+    assert np.all(
+        np.diff(ranges, axis=1) > 0
+    ), "ranges ends must all be greater than starts"
 
     # Make array containing points, starts and finishes
 
@@ -239,13 +313,13 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
     to_sort = np.concatenate((ranges[:, 0], x, ranges[:, 1]))
     # worst case O(n*log(n)) but will be better than this as most of the array is ordered;
     # memory overhead ~n/2
-    idx = np.argsort(to_sort, kind='stable')
+    idx = np.argsort(to_sort, kind="stable")
 
     # Make delta array containing 1 for every start and -1 for every stop
     # with one row for each range label
-    if mode == 'matrix':
+    if mode == "matrix":
         delta_shape = (n_labels, n_points + 2 * n_ranges)
-        delta = np.zeros(delta_shape, dtype='int8')
+        delta = np.zeros(delta_shape, dtype="int8")
 
         delta[labels, np.arange(n_ranges)] = 1
         delta[labels, n_points + n_ranges + np.arange(n_ranges)] = -1
@@ -261,9 +335,9 @@ def within_ranges(x: np.ndarray, ranges: Array, labels: Optional[Array] = None,
         reordered[:, idx] = summed.reshape(delta_shape[0], -1)
         return reordered[:, np.arange(n_ranges, n_points + n_ranges)]
 
-    elif mode == 'vector':
+    elif mode == "vector":
         delta_shape = (n_points + 2 * n_ranges,)
-        r_delta = np.zeros(delta_shape, dtype='int32')
+        r_delta = np.zeros(delta_shape, dtype="int32")
         r_delta[np.arange(n_ranges)] = labels
         r_delta[n_points + n_ranges + np.arange(n_ranges)] = -labels
 
