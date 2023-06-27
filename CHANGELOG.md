@@ -1,5 +1,9 @@
 # Changelog
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.5.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.0]
+
+- bincount2D() moved from ibllib.processing to iblutil.numerical
+
+## [1.5.0]
 
 ### Added
 
