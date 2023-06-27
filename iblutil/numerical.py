@@ -182,10 +182,11 @@ def find_first_2d(mat, val):
 
 def rcoeff(x, y):
     """
-    Computes pairwise Person correlation coefficients for matrices.
+    Computes pairwise Pearson correlation coefficients for matrices.
+
     That is for 2 matrices the same size, computes the row to row coefficients and outputs
-    a vector corresponding to the number of rows of the first matrix
-    If the second array is a vector then computes the correlation coefficient for all rows
+    a vector corresponding to the number of rows of the first matrix.
+    If the second array is a vector then computes the correlation coefficient for all rows.
     :param x: np array [nc, ns]
     :param y: np array [nc, ns] or [ns]
     :return: r [nc]

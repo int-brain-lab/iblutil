@@ -3,7 +3,13 @@
 
 ### Added
 
-- bincount2D() moved from ibllib.processing to iblutil.numerical
+- bincount2D moved from ibllib.processing to iblutil.numerical
+
+## [1.6.0]
+
+### Added
+
+- numerical.rcoeff function that computes pairwise Pearson correlation coefficients for matrices
 
 ## [1.5.0]
 
