@@ -7,7 +7,7 @@ import sys
 
 import numpy as np
 
-LOG_FORMAT_STR = '%(asctime)s.%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
+LOG_FORMAT_STR = '%(asctime)s.%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno) 5d]   %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_COLORS = {
     'DEBUG': 'green',
