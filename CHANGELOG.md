@@ -1,5 +1,5 @@
 # Changelog
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.1]
 
 ### Added
 
