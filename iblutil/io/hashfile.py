@@ -11,20 +11,28 @@ from tqdm import tqdm
 BUF_SIZE = 2 ** 28  # 256 megs
 
 
-def md5(file_path):
+def blake2b(file_path, *args, **kwargs):
+    """
+    Computes blake2b hash in a memory reasoned way
+    blake2b_hash = hashfile.blake2b(file_path)
+    """
+    return _hash_file(file_path, hashlib.blake2b(), *args, **kwargs)
+
+
+def md5(file_path, *args, **kwargs):
     """
     Computes md5 hash in a memory reasoned way
-    md5hash = hashfile.md5(file_path)
+    md5_hash = hashfile.md5(file_path)
     """
-    return _hash_file(file_path, hashlib.md5())
+    return _hash_file(file_path, hashlib.md5(), *args, **kwargs)
 
 
-def sha1(file_path):
+def sha1(file_path, *args, **kwargs):
     """
     Computes sha1 hash in a memory reasoned way
-    md5hash = hashfile.sha1(file_path)
+    sha1_hash = hashfile.sha1(file_path)
     """
-    return _hash_file(file_path, hashlib.sha1())
+    return _hash_file(file_path, hashlib.sha1(), *args, **kwargs)
 
 
 def _hash_file(file_path, hash_obj, progress_bar=None):
