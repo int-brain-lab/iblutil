@@ -3,6 +3,16 @@
 
 ### Added
 
+- blake2b support for io.hashfile
+
+### Modified
+
+- improved readability of logs
+
+## [1.7.0]
+
+### Added
+
 - bincount2D moved from ibllib.processing to iblutil.numerical
 
 ## [1.6.0]
