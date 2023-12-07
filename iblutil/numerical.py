@@ -1,7 +1,6 @@
 from typing import TypeVar, Sequence, Union, Optional, Type
 
 import numpy as np
-from numba import jit
 
 D = TypeVar("D", bound=np.generic)
 Array = Union[np.ndarray, Sequence]
@@ -56,6 +55,22 @@ def ismember2d(a, b):
     :param b: 2d array
     :return: isin, locb
     """
+    from numba import jit
+
+    @jit(nopython=True)
+    def find_first_2d(mat, val):
+        """
+        Returns first index where
+        The purpose of this function is performance: uses low level numba and avoids looping
+        through the full array
+        :param mat: np.array
+        :param val: values to search for
+        :return: index or empty array
+        """
+        for i in np.arange(mat.shape[0]):
+            if np.all(mat[i] == val):
+                return i
+
     amask = np.ones(a.shape[0], dtype=bool)
     ia = np.zeros(a.shape, dtype=bool)
     ib = np.zeros(a.shape, dtype=np.int32) - 1
@@ -163,21 +178,6 @@ def bincount2D(x, y, xbin=0, ybin=0, xlim=None, ylim=None, weights=None):
         yscale = ybin
 
     return r, xscale, yscale
-
-
-@jit(nopython=True)
-def find_first_2d(mat, val):
-    """
-    Returns first index where
-    The purpose of this function is performance: uses low level numba and avoids looping
-    through the full array
-    :param mat: np.array
-    :param val: values to search for
-    :return: index or empty array
-    """
-    for i in np.arange(mat.shape[0]):
-        if np.all(mat[i] == val):
-            return i
 
 
 def rcoeff(x, y):

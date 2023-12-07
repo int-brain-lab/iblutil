@@ -1,5 +1,12 @@
 # Changelog
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.1]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.2]
+
+### Modified
+
+- moved numba jit import down in the only function that uses it to improve stability of the environment
+as llvmlite is known to cause issues with some configurations
+
+##  [1.7.1]
 
 ### Added
 
