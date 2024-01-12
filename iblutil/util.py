@@ -8,7 +8,7 @@ import sys
 import numpy as np
 
 LOG_FORMAT_STR = '%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
-LOG_DATE_FORMAT = '%d-%m-%Y %H:%M:%S'
+LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_COLORS = {
     'DEBUG': 'green',
     'INFO': 'cyan',
