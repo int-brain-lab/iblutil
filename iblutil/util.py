@@ -168,7 +168,7 @@ def setup_logger(name='ibl', level=logging.NOTSET, file=None, no_color=False):
         # need to remove any previous default Stream handler configured on stderr
         # to not duplicate output
         for h in log.handlers:
-            if h.stream.name == '<stderr>' and h.level == 0 and h.name is None:
+            if isinstance(h, logging.StreamHandler) and h.stream.name == '<stderr>' and h.level == 0 and h.name is None:
                 log.removeHandler(h)
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         stream_handler.setFormatter(
