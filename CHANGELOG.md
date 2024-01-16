@@ -1,5 +1,12 @@
 # Changelog
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.2]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.3]
+
+### Modified
+
+- setup_logger: simpler layout  
+- setup_logger: check class of log.handler instance before accessing class-specific field
+
+##  [1.7.2]
 
 ### Modified
 
