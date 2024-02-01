@@ -7,7 +7,7 @@ import sys
 
 import numpy as np
 
-LOG_FORMAT_STR = '%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
+LOG_FORMAT_STR = u'%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_COLORS = {
     'DEBUG': 'green',
@@ -208,7 +208,7 @@ def log_to_file(log='ibl', filename=None):
     elif not Path(filename).is_absolute():
         filename = Path.home().joinpath('.ibl_logs', filename)
     filename.parent.mkdir(exist_ok=True)
-    file_handler = logging.FileHandler(filename)
+    file_handler = logging.FileHandler(filename, encoding='utf-8')
     file_format = logging.Formatter(LOG_FORMAT_STR, LOG_DATE_FORMAT)
     file_handler.setFormatter(file_format)
     file_handler.name = f'{log.name}_file'
