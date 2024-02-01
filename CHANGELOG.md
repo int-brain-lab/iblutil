@@ -1,7 +1,11 @@
 # Changelog
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.3]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.4]
 
 ### Modified
+
+- setup_logger: use unicode for LOG_FORMAT_STR
+
+##  [1.7.3]
 
 - setup_logger: simpler layout  
 - setup_logger: check class of log.handler instance before accessing class-specific field
