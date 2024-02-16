@@ -229,7 +229,7 @@ def rrmdir(folder: Path, levels: int = 0) -> None:
         The path to a folder at which to start the recursion.
     levels : int
         Recursion level, i.e., the number of parents to delete, relative to
-        `folder`. Defaults to 0 - which has the same effect``````````````` as pathlib.Path.rmdir().
+        `folder`. Defaults to 0 - which has the same effect as pathlib.Path.rmdir().
 
     Raises
     ------
