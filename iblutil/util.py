@@ -7,6 +7,8 @@ import sys
 
 import numpy as np
 
+log = logging.getLogger('__name__')
+
 LOG_FORMAT_STR = u'%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_COLORS = {
@@ -227,7 +229,7 @@ def rrmdir(folder: Path, levels: int = 0) -> None:
         The absolute path to a folder at which to start the recursion.
     levels : int
         Recursion level, i.e., the number of parents to delete, relative to
-        `folder`. Defaults to 0 - which has the same behavior as pathlib.Path.rmdir().
+        `folder`. Defaults to 0 - which has the same effect``````````````` as pathlib.Path.rmdir().
 
     Raises
     ------
@@ -236,13 +238,13 @@ def rrmdir(folder: Path, levels: int = 0) -> None:
     ValueError
         If `folder` is not an absolute path
     """
-    if not folder.is_absolute():
+    if not folder.resolve().is_absolute():
         raise ValueError(f'Not an absolute path: {folder}')
     if folder.exists():
         if not any(folder.iterdir()) and not folder == Path(folder.anchor):
             log.debug(f'Deleting empty folder {folder}')
             folder.rmdir()
             if levels > 0:
-                remove_empty_parent_folders(folder.parent, levels=levels-1)
+                rrmdir(folder.parent, levels=levels-1)
     else:
         raise FileNotFoundError(folder)
