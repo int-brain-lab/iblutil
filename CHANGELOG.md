@@ -1,6 +1,12 @@
 # Changelog
 ## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.7.4]
 
+### Added
+
+- util.rrmdir: method to recursively delete empty folders
+
+##  [1.7.3]
+
 ### Modified
 
 - setup_logger: use unicode for LOG_FORMAT_STR

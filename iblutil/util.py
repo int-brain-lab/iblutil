@@ -7,6 +7,8 @@ import sys
 
 import numpy as np
 
+log = logging.getLogger('__name__')
+
 LOG_FORMAT_STR = u'%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_COLORS = {
@@ -215,3 +217,30 @@ def log_to_file(log='ibl', filename=None):
     log.addHandler(file_handler)
     log.info(f'File log initiated {file_handler.name}')
     return log
+
+
+def rrmdir(folder: Path, levels: int = 0) -> None:
+    """
+    Recursively remove a folder and its parents up to a defined level - if they are empty.
+
+    Parameters
+    ----------
+    folder : Path
+        The path to a folder at which to start the recursion.
+    levels : int
+        Recursion level, i.e., the number of parents to delete, relative to
+        `folder`. Defaults to 0 - which has the same effect as pathlib.Path.rmdir().
+
+    Raises
+    ------
+    FileNotFoundError
+        If `folder` does not exist
+    """
+    if folder.exists():
+        if not any(folder.iterdir()) and not folder == Path(folder.anchor):
+            log.debug(f'Deleting empty folder {folder}')
+            folder.rmdir()
+            if levels > 0:
+                rrmdir(folder.parent, levels=levels-1)
+    else:
+        raise FileNotFoundError(folder)

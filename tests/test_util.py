@@ -140,5 +140,43 @@ class TestLogger(unittest.TestCase):
         Path.home().joinpath('.ibl_logs', self.log_name).unlink(missing_ok=True)
 
 
+class TestRrmdir(unittest.TestCase):
+
+    def test_rrmdir(self):
+        with self.assertRaises(FileNotFoundError):
+            util.rrmdir(Path('/fantasy/path'))
+        with tempfile.TemporaryDirectory() as tempdir:
+            # nested folders
+            folder_level_3 = Path(tempdir).joinpath('folder_level_3')
+            folder_level_2 = folder_level_3.joinpath('folder_level_2')
+            folder_level_1 = folder_level_2.joinpath('folder_level_1')
+            folder_level_0 = folder_level_1.joinpath('folder_level_0')
+
+            # default level = 0, folder contains file - nothing should happen
+            folder_level_0.mkdir(parents=True)
+            (file := folder_level_0.joinpath('file')).touch()
+            util.rrmdir(folder_level_0)
+            assert file.exists()
+
+            # default level = 0, folder and all parents are empty
+            file.unlink()
+            util.rrmdir(folder_level_0)
+            assert not folder_level_0.exists()
+            assert folder_level_1.exists()
+
+            # remove empty folders to level 2
+            folder_level_0.mkdir(parents=True)
+            util.rrmdir(folder_level_0, levels=2)
+            assert not folder_level_2.exists()
+            assert folder_level_3.exists()
+
+            # remove empty folders to level 3, with a file in level 2
+            folder_level_0.mkdir(parents=True)
+            (file := folder_level_2.joinpath('file')).touch()
+            util.rrmdir(folder_level_0, levels=3)
+            assert not folder_level_1.exists()
+            assert file.exists()
+
+
 if __name__ == "__main__":
     unittest.main(exit=False)
