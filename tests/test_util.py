@@ -143,8 +143,6 @@ class TestLogger(unittest.TestCase):
 class TestRrmdir(unittest.TestCase):
 
     def test_rrmdir(self):
-        with self.assertRaises(ValueError):
-            util.rrmdir(Path('relative/path'))
         with self.assertRaises(FileNotFoundError):
             util.rrmdir(Path('/fantasy/path'))
         with tempfile.TemporaryDirectory() as tempdir:

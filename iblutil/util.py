@@ -226,7 +226,7 @@ def rrmdir(folder: Path, levels: int = 0) -> None:
     Parameters
     ----------
     folder : Path
-        The absolute path to a folder at which to start the recursion.
+        The path to a folder at which to start the recursion.
     levels : int
         Recursion level, i.e., the number of parents to delete, relative to
         `folder`. Defaults to 0 - which has the same effect``````````````` as pathlib.Path.rmdir().
@@ -235,11 +235,7 @@ def rrmdir(folder: Path, levels: int = 0) -> None:
     ------
     FileNotFoundError
         If `folder` does not exist
-    ValueError
-        If `folder` is not an absolute path
     """
-    if not folder.resolve().is_absolute():
-        raise ValueError(f'Not an absolute path: {folder}')
     if folder.exists():
         if not any(folder.iterdir()) and not folder == Path(folder.anchor):
             log.debug(f'Deleting empty folder {folder}')
