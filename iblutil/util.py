@@ -215,3 +215,34 @@ def log_to_file(log='ibl', filename=None):
     log.addHandler(file_handler)
     log.info(f'File log initiated {file_handler.name}')
     return log
+
+
+def rrmdir(folder: Path, levels: int = 0) -> None:
+    """
+    Recursively remove a folder and its parents up to a defined level - if they are empty.
+
+    Parameters
+    ----------
+    folder : Path
+        The absolute path to a folder at which to start the recursion.
+    levels : int
+        Recursion level, i.e., the number of parents to delete, relative to
+        `folder`. Defaults to 0 - which has the same behavior as pathlib.Path.rmdir().
+
+    Raises
+    ------
+    FileNotFoundError
+        If `folder` does not exist
+    ValueError
+        If `folder` is not an absolute path
+    """
+    if not folder.is_absolute():
+        raise ValueError(f'Not an absolute path: {folder}')
+    if folder.exists():
+        if not any(folder.iterdir()) and not folder == Path(folder.anchor):
+            log.debug(f'Deleting empty folder {folder}')
+            folder.rmdir()
+            if levels > 0:
+                remove_empty_parent_folders(folder.parent, levels=levels-1)
+    else:
+        raise FileNotFoundError(folder)
