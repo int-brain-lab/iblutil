@@ -139,6 +139,7 @@ class TestLogger(unittest.TestCase):
             test_log.removeHandler(handler)
         Path.home().joinpath('.ibl_logs', self.log_name).unlink(missing_ok=True)
 
+
 class TestRrmdir(unittest.TestCase):
 
     def test_rrmdir(self):
@@ -157,7 +158,6 @@ class TestRrmdir(unittest.TestCase):
             folder_level_0.mkdir(parents=True)
             (file := folder_level_0.joinpath('file')).touch()
             util.rrmdir(folder_level_0)
-            assert folder_level_0.exists()
             assert file.exists()
 
             # default level = 0, folder and all parents are empty
@@ -177,9 +177,8 @@ class TestRrmdir(unittest.TestCase):
             (file := folder_level_2.joinpath('file')).touch()
             util.rrmdir(folder_level_0, levels=3)
             assert not folder_level_1.exists()
-            assert folder_level_2.exists()
             assert file.exists()
 
-            
+
 if __name__ == "__main__":
     unittest.main(exit=False)
