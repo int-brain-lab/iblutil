@@ -1,3 +1,4 @@
+from itertools import takewhile
 from pathlib import Path
 import collections
 import colorlog
@@ -219,28 +220,36 @@ def log_to_file(log='ibl', filename=None):
     return log
 
 
-def rrmdir(folder: Path, levels: int = 0) -> None:
+def rrmdir(folder: Path, levels: int = 0):
     """
     Recursively remove a folder and its parents up to a defined level - if they are empty.
 
     Parameters
     ----------
-    folder : Path
+    folder : pathlib.Path
         The path to a folder at which to start the recursion.
     levels : int
-        Recursion level, i.e., the number of parents to delete, relative to
-        `folder`. Defaults to 0 - which has the same effect as pathlib.Path.rmdir().
+        Recursion level, i.e. the number of parents to delete, relative to `folder`.
+        Defaults to 0 - which has the same effect as `pathlib.Path.rmdir` except that it won't
+        raise an OSError if the directory is not empty.
+
+    Returns
+    -------
+    list of pathlib.Path
+        A list of folders that were recursively removed.
 
     Raises
     ------
     FileNotFoundError
-        If `folder` does not exist
+        If `folder` does not exist.
+    PermissionError
+        Insufficient privileges or folder in use by another process.
+    NotADirectoryError
+        The folder provided is most likely a file.
     """
-    if folder.exists():
-        if not any(folder.iterdir()) and not folder == Path(folder.anchor):
-            log.debug(f'Deleting empty folder {folder}')
-            folder.rmdir()
-            if levels > 0:
-                rrmdir(folder.parent, levels=levels-1)
-    else:
-        raise FileNotFoundError(folder)
+    try:  # a sorted list of absolute nested folder paths
+        to_remove = (folder, *folder.parents[:levels])  # py >= 3.9
+    except TypeError:  # py <= 3.8 compatible
+        to_remove = (folder, *[folder.parents[n] for n in range(levels)])
+    # filter list to those that are empty; if statement always true as rmdir returns None
+    return [f for f in takewhile(lambda f: not any(f.iterdir()), to_remove) if not f.rmdir()]

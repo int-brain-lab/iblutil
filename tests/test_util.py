@@ -155,28 +155,30 @@ class TestRrmdir(unittest.TestCase):
             # default level = 0, folder contains file - nothing should happen
             folder_level_0.mkdir(parents=True)
             (file := folder_level_0.joinpath('file')).touch()
-            util.rrmdir(folder_level_0)
-            assert file.exists()
+            self.assertEqual([], util.rrmdir(folder_level_0))
+            self.assertTrue(file.exists())
 
             # default level = 0, folder and all parents are empty
             file.unlink()
-            util.rrmdir(folder_level_0)
-            assert not folder_level_0.exists()
-            assert folder_level_1.exists()
+            self.assertEqual([folder_level_0], util.rrmdir(folder_level_0))
+            self.assertFalse(folder_level_0.exists())
+            self.assertTrue(folder_level_1.exists())
 
             # remove empty folders to level 2
             folder_level_0.mkdir(parents=True)
-            util.rrmdir(folder_level_0, levels=2)
-            assert not folder_level_2.exists()
-            assert folder_level_3.exists()
+            removed = util.rrmdir(folder_level_0, levels=2)
+            self.assertEqual([folder_level_0, folder_level_1, folder_level_2], removed)
+            self.assertFalse(folder_level_2.exists())
+            self.assertTrue(folder_level_3.exists())
 
             # remove empty folders to level 3, with a file in level 2
             folder_level_0.mkdir(parents=True)
             (file := folder_level_2.joinpath('file')).touch()
-            util.rrmdir(folder_level_0, levels=3)
-            assert not folder_level_1.exists()
-            assert file.exists()
+            removed = util.rrmdir(folder_level_0, levels=3)
+            self.assertEqual(removed, [folder_level_0, folder_level_1])
+            self.assertFalse(folder_level_1.exists())
+            self.assertTrue(file.exists())
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main(exit=False)
