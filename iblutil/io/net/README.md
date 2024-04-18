@@ -7,7 +7,7 @@ The net package contains three major components:
 
 ## Echo protocol
 The Communicator is implemented as net.app.EchoProtocol which can be instantiated in either a 'client' or 'server' role.
-A 'server' is a signal main acquisition PC which listens on a specified local port and sends messages to multiple remote clients.
+A 'server' is a single main acquisition PC which listens on a specified local port and sends messages to multiple remote clients.
 A 'client' is one of potentially many auxiliary acquisition PCs that await commands from the same remote server.
 
 NB: The role you instantiate represents the role of the _remote computer_ that you are connecting to.

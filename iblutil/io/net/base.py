@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 import urllib.request
 import ipaddress
-from enum import IntEnum
+from enum import IntFlag
 
 LISTEN_PORT = 10001  # listen for commands on this port
 
@@ -137,7 +137,7 @@ def validate_uri(uri, resolve_host=True, default_port=LISTEN_PORT, default_proc=
     return f'{proc or default_proc}://{host}:{port}'
 
 
-class ExpMessage(IntEnum):
+class ExpMessage(IntFlag):
     """A set of standard experiment messages for communicating between rigs."""
 
     """Experiment is initializing."""
@@ -156,6 +156,8 @@ class ExpMessage(IntEnum):
     EXPINFO = 2
     """Alyx token."""
     ALYX = 3
+    """Any valid message."""
+    ANY = EXPINFO | EXPSTART | EXPEND | EXPCLEANUP | EXPINTERRUPT | EXPSTATUS | EXPINFO | ALYX
 
     @staticmethod
     def validate(event):
