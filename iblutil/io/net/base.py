@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 import urllib.request
 import ipaddress
-from enum import IntFlag
+from enum import IntFlag, IntEnum
 
 LISTEN_PORT = 10001  # listen for commands on this port
 
@@ -206,6 +206,19 @@ class ExpMessage(IntFlag):
                 raise ValueError(f'Unrecognized event "{event}". '
                                  f'Choices: {tuple(map(lambda item: item.name, ExpMessage))}')
         return event
+
+
+class ExpStatus(IntEnum):
+    """A set of standard statuses for communicating between rigs."""
+
+    """Service is connected."""
+    CONNECTED = 0
+    """Service is initialized."""
+    INITIALIZED = 10
+    """Service is running."""
+    RUNNING = 20
+    """Experiment has stopped."""
+    STOPPED = 30
 
 
 class Service(ABC):

@@ -465,7 +465,7 @@ class EchoProtocol(base.Communicator):
             To use TCP/IP instead of the default UDP, add a 'ws://' scheme to the URI.
         name : str
             An optional, arbitrary label.
-        **kwargs
+        kwargs
             Optional parameters to pass to create_datagram_endpoint for UDP or create_server for
             TCP/IP.
 
@@ -506,7 +506,7 @@ class EchoProtocol(base.Communicator):
             To use TCP/IP instead of the default UDP, add a 'ws://' scheme to the URI.
         name : str
             An optional, arbitrary label.
-        **kwargs
+        kwargs
             Optional parameters to pass to create_datagram_endpoint for UDP or create_server for
             TCP/IP.
 
@@ -766,19 +766,22 @@ class Services(base.Service, UserDict):
             The event to signal to services.
         method : str
             The name of the method to call for each service.
-        *args
+        args
             Positional arguments to pass to method.
         concurrent : bool
             If true, all services are signaled concurrently.
         reverse : bool
             If true, iterate over services in reverse order.
-        **kwargs
+        kwargs
             Keyword arguments to pass to method.
 
         Returns
         -------
         dict of str
             A dictionary of service names and the response data received.
+
+        TODO Could initialize response dict created in await_all and allow it to be returned
+         this would allow one to peek at responses before all are in
         """
         if concurrent:
             for service in (reversed(list(self.values())) if reverse else self.values()):
