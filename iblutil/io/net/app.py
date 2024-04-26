@@ -37,7 +37,7 @@ def _setup_log(name, level=logging.DEBUG):
     log.setLevel(level)
 
     log.handlers = []
-    fmt_str = '%(log_color)s' + util.LOG_FORMAT_STR.replace('%(filename)s:%(lineno)d', '%(name)s')
+    fmt_str = '%(log_color)s%(asctime)s [%(name)s] %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setFormatter(
         colorlog.ColoredFormatter(fmt_str, util.LOG_DATE_FORMAT, log_colors=util.LOG_COLORS))
@@ -133,7 +133,7 @@ class EchoProtocol(base.Communicator):
         """
         if self._role is not None:
             raise AttributeError('can\'t set attribute')
-        if value.strip().lower() not in ('server', 'client'):
+        if (value or '').strip().lower() not in ('server', 'client'):
             raise ValueError('role must be either "server" or "client"')
         self._role = value.strip().lower()
 
@@ -214,6 +214,48 @@ class EchoProtocol(base.Communicator):
         message = super().stop(data, immediately=immediately)
         await self.confirmed_send(message, addr=addr)
 
+    async def status(self, status, addr=None):
+        """Communicate experiment status.
+
+        Send a status message to the remote host.
+
+        Parameters
+        ----------
+        status : iblutil.net.base.ExpStatus
+            An experiment status enumeration.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+        """
+        message = super().status(status)
+        await self.confirmed_send(message, addr=addr)
+
+    async def info(self, status, data=None, addr=None):
+        """Communicate experiment information.
+
+        Send experiment status and details to the remote host.
+
+        Parameters
+        ----------
+        status : iblutil.net.base.ExpStatus
+            An experiment status enumeration.
+        data : any
+            Optional extra data to send to the remote host.
+        addr : (str, int)
+            The remote host address and port. Only required in server role.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+        """
+        message = super().info(status, data)
+        await self.confirmed_send(message, addr=addr)
+
     async def init(self, data=None, addr=None):
         """Initialize an experiment.
 
@@ -247,25 +289,24 @@ class EchoProtocol(base.Communicator):
 
         Returns
         -------
-        (str, dict)
-            (If alyx arg was None) the received Alyx token in the form (base_url, {user: token}).
-        (str, int)
-            The hostname and port of the remote host.
+        (str, dict) or None
+            (If alyx arg was None or not authenticated) the received Alyx token in the form (base_url, {user: token}).
         """
-        if alyx:  # send instance to remote host
-            message = super().alyx(alyx)
+        message = super().alyx(alyx)
+        if all(message):  # send instance to remote host
             await self.confirmed_send(message, addr=addr)
         else:  # request instance from remote host
             loop = asyncio.get_running_loop()
             fut = loop.create_future()
             self.assign_callback('ALYX', fut)
-            await self.confirmed_send((base.ExpMessage.ALYX, None), addr=addr)
-            return fut
+            await self.confirmed_send(message, addr=addr)
+            token, _ = await fut
+            return token
 
     @staticmethod
     def encode(data):
         """Serialize data for transmission"""
-        if isinstance(data, bytes):
+        if isinstance(data, (bytes, bytearray)):
             return data
         if not isinstance(data, str):
             data = json.dumps(data)
@@ -288,6 +329,7 @@ class EchoProtocol(base.Communicator):
                 return
             self.logger.debug(f'Send "{data}" to {self.protocol}://{addr[0]}:{addr[1]}')
             self._transport.write(self.encode(data))
+            # self._transport.write_eof()
 
     async def confirmed_send(self, data, addr=None, timeout=None):
         """
@@ -327,6 +369,7 @@ class EchoProtocol(base.Communicator):
             raise ValueError('Timeout must be non-zero number')
         loop = asyncio.get_running_loop()
         echo_future = loop.create_future()
+        # echo_future.add_done_callback(lambda _: self._last_sent.pop(addr))  # delete below instead (no difference)
         self._last_sent[addr] = (self.encode(data), echo_future)
         self.send(self._last_sent[addr][0], addr=addr)
         # Sockets can no longer be blocking, so we'll wait ourselves.
@@ -338,7 +381,7 @@ class EchoProtocol(base.Communicator):
         except RuntimeError:
             self.close()
             raise RuntimeError('Unexpected response from server')
-        self._last_sent.pop(addr)
+        del self._last_sent[addr]
 
     def close(self):
         """
@@ -408,20 +451,23 @@ class EchoProtocol(base.Communicator):
         """
         host, port = addr[:2]
         msg = data.decode()
-        if last_sent := self._last_sent.get(addr):
+        # If we're still awaiting echo from this address, process here. NB: sometimes the echo_future is already set
+        # but not yet removed from last sent, so we also check future not successfully finished.
+        if (last_sent := self._last_sent.get(addr)) and not base.is_success(last_sent[1]):
             expected, echo_future = last_sent
             # If echo doesn't match, raise exception
             if data != expected:
                 self.logger.error('Expected %s from %s, got %s', expected, self.name, data)
                 echo_future.set_exception(RuntimeError)
-            else:  # Notify callbacks of receipt
+            elif not echo_future.cancelled():  # Notify callbacks of receipt
                 self.logger.info('Confirmation received')
                 echo_future.set_result(True)
         else:
             self.logger.info('Received %r from %s://%s:%i', msg, self.protocol, host, port)
             # Update from remote
-            self.logger.debug('Echo %r to %s://%s:%i', msg, self.protocol, host, port)
-            self.send(data, addr)  # Echo
+            if msg[1] != '0':  # do not echo 0 code messages; these are low-level errors
+                self.logger.debug('Echo %r to %s://%s:%i', msg, self.protocol, host, port)
+                self.send(data, addr)  # Echo
             super()._receive(data, addr)  # Process callbacks
 
     def datagram_received(self, data, addr):
@@ -631,7 +677,7 @@ class Services(base.Service, UserDict):
             task = asyncio.create_task(_return_data(rig, rig.on_event(event)))
             tasks.add(task)
 
-        if self.timeout:
+        if self.timeout:  # TODO with asyncio.timeout context manager
             _, pending = await asyncio.wait(
                 tasks, timeout=self.timeout, return_when=asyncio.ALL_COMPLETED
             )
@@ -678,7 +724,7 @@ class Services(base.Service, UserDict):
     async def cleanup(self, data=None, concurrent=True):
         """Cleanup an experiment.
 
-        Send an cleanup signal to the remote services and await responses.
+        Send a cleanup signal to the remote services and await responses.
 
         Parameters
         ----------
@@ -757,6 +803,56 @@ class Services(base.Service, UserDict):
         event = base.ExpMessage.EXPEND
         return await self._signal(event, 'stop', data=data, immediately=immediately, reverse=True, **kwargs)
 
+    async def status(self, status, **kwargs):
+        """Communicate experiment status.
+
+        Send a status message to the remote services and await responses.
+
+        Parameters
+        ----------
+        status : iblutil.net.base.ExpStatus
+            An experiment status enumeration.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+            Remote host failed to respond within response period.
+        """
+        event = base.ExpMessage.EXPSTATUS
+        return await self._signal(event, 'status', status, **kwargs)
+
+    async def info(self, status, data=None, **kwargs):
+        """Report experiment information.
+
+        Send a status message and other details to the remote services and await responses.
+
+        Parameters
+        ----------
+        status : iblutil.net.base.ExpStatus
+            An experiment status enumeration.
+        data : any
+            Optional extra data to send to the remote host.
+
+        Returns
+        -------
+        dict of str
+            A dictionary of service names and the response data received.
+
+        Raises
+        ------
+        TimeoutError
+            Remote host failed to echo the message within the timeout period.
+            Remote host failed to respond within response period.
+        """
+        event = base.ExpMessage.EXPINFO
+        return await self._signal(event, 'info', status, data=data, **kwargs)
+
     async def _signal(self, event, method, *args, concurrent=True, reverse=False, **kwargs):
         """Send an event signal to the remote services and await responses.
 
@@ -783,11 +879,15 @@ class Services(base.Service, UserDict):
         TODO Could initialize response dict created in await_all and allow it to be returned
          this would allow one to peek at responses before all are in
         """
+        event = base.ExpMessage.validate(event, allow_bitwise=False)
         if concurrent:
+            # Register event callbacks before sending messages otherwise we may receive a response before callback is
+            # created.
+            all_responses = asyncio.create_task(self.await_all(event), name='service responses')
             for service in (reversed(list(self.values())) if reverse else self.values()):
                 f = getattr(service, method or event.name.lower())
                 await f(*args, **kwargs)
-            responses = await self.await_all(event)
+            responses = await all_responses
         else:
             responses = dict.fromkeys(self.keys())
             for name, service in (reversed(list(self.items())) if reverse else self.items()):

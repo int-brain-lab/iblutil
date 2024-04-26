@@ -1,9 +1,15 @@
-import collections
 from pathlib import Path, PurePath
+from datetime import datetime
+import collections
 import sys
 import os
 import json
 import subprocess
+import logging
+import time
+import socket
+import asyncio
+from math import inf
 
 
 def as_dict(par):
@@ -134,3 +140,69 @@ def write(str_params, par):
             dpar[k] = str(dpar[k])
     with open(pfile, 'w') as fil:
         json.dump(as_dict(par), fil, sort_keys=False, indent=4)
+
+
+class FileLock:
+    def __init__(self, filename, log=None, timeout=10, timeout_action='delete'):
+        self.filename = Path(filename)
+        self._logger = log or logging.getLogger(__name__)
+        self.timeout = timeout
+        self.timeout_action = timeout_action
+        if not self.timeout_action in ('delete', 'raise'):
+            raise ValueError(f'Invalid timeout action: {self.timeout_action}')
+        self._poll_freq = 0.2
+
+    @property
+    def lockfile(self):
+        return self.filename.with_suffix('.lock')
+
+    async def _lock_check_async(self):
+        while self.lockfile.exists():
+            await asyncio.sleep(self._poll_freq)
+
+    def __enter__(self):
+        # if a lock file exists retries n times to see if it exists
+        attempts = 0
+        n_attempts = 5 if self.timeout else inf
+        timeout = self.timeout / n_attempts if self.timeout else self._poll_freq
+
+        while self.lockfile.exists() or attempts <= n_attempts:
+            self._logger.info('file lock found, waiting %.2f seconds %s', timeout, self.lockfile)
+            time.sleep(timeout)
+            attempts += 1
+
+        # if the file still exists after 5 attempts, remove it as it's a job that went wrong
+        if self.lockfile.exists():
+            with open(self.lockfile, 'r') as fp:
+                self._logger.debug('file lock contents: %s', json.load(fp))
+            if self.timeout_action == 'delete':
+                self._logger.info('stale file lock found, deleting %s', self.lockfile)
+                self.lockfile.unlink()
+            else:
+                raise TimeoutError(f'{self.lockfile} file lock timed out')
+
+        # add in the lock file, add some metadata to ease debugging if one gets stuck
+        with open(self.lockfile, 'w') as fp:
+            json.dump(dict(datetime=datetime.utcnow().isoformat(), hostname=str(socket.gethostname)), fp)
+
+    async def __aenter__(self):
+        # if a lock file exists wait until timeout before removing
+        try:
+            await asyncio.wait_for(self._lock_check_async(), timeout=self.timeout)
+        except asyncio.TimeoutError as e:
+            with open(self.lockfile, 'r') as fp:
+                self._logger.debug('file lock contents: %s', json.load(fp))
+            if self.timeout_action == 'raise':
+                raise e
+            self._logger.info('stale file lock found, deleting %s', self.lockfile)
+            self.lockfile.unlink()
+
+        # add in the lock file, add some metadata to ease debugging if one gets stuck
+        with open(self.lockfile, 'w') as fp:
+            json.dump(dict(datetime=datetime.utcnow().isoformat(), hostname=str(socket.gethostname)), fp)
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self.lockfile.unlink()
+
+    async def __aexit__(self, exc_type, exc_value, exc_tb):
+        self.lockfile.unlink()
