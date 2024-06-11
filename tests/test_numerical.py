@@ -1,7 +1,24 @@
 import unittest
+import uuid
 
 import iblutil.numerical as num
 import numpy as np
+import pandas as pd
+
+
+class HashUUIDs(unittest.TestCase):
+
+    def test_hash_uuids(self):
+        the_hash = 'fc898a58172960bcc2d49577e17d34e0e59ded74567ee236533c0757f016262f'
+        uuids = [
+            'c5cabbda-1f74-4168-ad5e-7c5a2f533d9f',
+            '5b5176f2-228f-46b5-85c8-205cf9d90a53',
+            '19930b44-2f8a-44e1-a8ce-46184f7334cb'
+        ]
+        self.assertEqual(the_hash, num.hash_uuids(uuids))
+        self.assertEqual(the_hash, num.hash_uuids(np.array(uuids)))
+        self.assertEqual(the_hash, num.hash_uuids(pd.Series(uuids)))
+        self.assertEqual(the_hash, num.hash_uuids([uuid.UUID(hex=uid) for uid in uuids]))
 
 
 class TestRcoeff(unittest.TestCase):

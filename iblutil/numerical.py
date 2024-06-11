@@ -1,5 +1,8 @@
+import hashlib
 from typing import TypeVar, Sequence, Union, Optional, Type
+import uuid
 
+import pandas as pd
 import numpy as np
 
 D = TypeVar("D", bound=np.generic)
@@ -28,6 +31,17 @@ def between_sorted(sorted_v, bounds=None):
     istops = np.searchsorted(sorted_v, stops, side="right")
     sel[istops[istops < sorted_v.size]] += -1
     return np.cumsum(sel).astype(bool)
+
+
+def hash_uuids(uuids: list | np.ndarray | pd.Series | pd.Index, algo="sha256"):
+    """
+    Returns a hash of an array or list of UUID strings
+    """
+    hash = hashlib.new('sha256')
+    for cid in uuids:
+        _uuid = cid if isinstance(cid, uuid.UUID) else uuid.UUID(hex=cid)
+        hash.update(_uuid.bytes)
+    return hash.hexdigest()
 
 
 def ismember(a, b):
