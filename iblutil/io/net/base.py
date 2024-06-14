@@ -228,6 +228,17 @@ class ExpMessage(IntFlag):
                              f'Choices: {tuple(ExpMessage)}')
         return event
 
+    def __iter__(self):  # py3.11 remove this method
+        """Iterate over the individual bits in the enumeration.
+
+        NB: This method is copied from Python 3.11 which supports iteration of Enum objects.
+        """
+        num = self.value
+        while num:
+            b = num & (~num + 1)
+            yield b
+            num ^= b
+
 
 class ExpStatus(IntEnum):
     """A set of standard statuses for communicating between rigs."""
