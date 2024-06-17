@@ -276,6 +276,6 @@ def dir_size(directory: Union[str, Path]) -> int:
         for entry in it:
             if entry.is_dir():
                 total_bytes += dir_size(entry.path)
-            else:
+            elif entry.is_file():
                 total_bytes += entry.stat().st_size
     return total_bytes
