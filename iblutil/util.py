@@ -6,6 +6,7 @@ import colorlog
 import copy
 import logging
 import sys
+from typing import Union
 
 import numpy as np
 
