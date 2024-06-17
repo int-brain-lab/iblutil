@@ -8,7 +8,6 @@ import logging
 import numpy as np
 
 from iblutil import util
-from iblutil.util import dir_size
 
 
 class TestBunch(unittest.TestCase):
@@ -198,7 +197,7 @@ class TestDirSize(unittest.TestCase):
             with open(file3, 'w') as f:
                 f.write('The sound of water')
             expected = path.getsize(file1) + path.getsize(file2) + path.getsize(file3)
-            self.assertEqual(dir_size(test_dir), expected)
+            self.assertEqual(util.dir_size(test_dir), expected)
 
 
 if __name__ == '__main__':
