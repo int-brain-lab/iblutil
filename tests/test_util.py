@@ -1,6 +1,5 @@
 import unittest
 import types
-from os import path, makedirs
 from pathlib import Path
 import tempfile
 import logging
@@ -184,21 +183,20 @@ class TestRrmdir(unittest.TestCase):
 class TestDirSize(unittest.TestCase):
 
     def test_dir_size(self):
-        with tempfile.TemporaryDirectory() as test_dir:
-            sub_dir = path.join(test_dir, 'sub_dir')
-            makedirs(sub_dir)
-            file1 = path.join(test_dir, 'file1')
-            file2 = path.join(sub_dir, 'file2')
-            file3 = path.join(sub_dir, 'file3')
-            with open(file1, 'w') as f:
-                f.write('Old pond')
-            with open(file2, 'w') as f:
-                f.write('A frog jumps in')
-            with open(file3, 'w') as f:
-                f.write('The sound of water')
-            expected = path.getsize(file1) + path.getsize(file2) + path.getsize(file3)
-            self.assertEqual(util.dir_size(str(test_dir)), expected)
-            self.assertEqual(util.dir_size(Path(test_dir)), expected)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dir1 = Path(temp_dir)
+            dir2 = Path(dir1).joinpath('sub_dir')
+            dir2.mkdir()
+            file1 = dir1.joinpath('file1')
+            file2 = dir2.joinpath('file2')
+            file3 = dir2.joinpath('file3')
+            with open(file1, 'w') as f1, open(file2, 'w') as f2, open(file3, 'w') as f3:
+                f1.write('Old pond')
+                f2.write('A frog jumps in')
+                f3.write('The sound of water')
+            expected = file1.stat().st_size + file2.stat().st_size + file3.stat().st_size
+            self.assertEqual(util.dir_size(str(dir1)), expected)
+            self.assertEqual(util.dir_size(dir1), expected)
 
 
 if __name__ == '__main__':
