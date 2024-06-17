@@ -1,5 +1,6 @@
 import unittest
 import types
+from os import path, makedirs
 from pathlib import Path
 import tempfile
 import logging
@@ -7,6 +8,7 @@ import logging
 import numpy as np
 
 from iblutil import util
+from iblutil.util import dir_size
 
 
 class TestBunch(unittest.TestCase):
@@ -178,6 +180,25 @@ class TestRrmdir(unittest.TestCase):
             self.assertEqual(removed, [folder_level_0, folder_level_1])
             self.assertFalse(folder_level_1.exists())
             self.assertTrue(file.exists())
+
+
+class TestDirSize(unittest.TestCase):
+
+    def test_dir_size(self):
+        with tempfile.TemporaryDirectory() as test_dir:
+            sub_dir = path.join(test_dir, 'sub_dir')
+            makedirs(sub_dir)
+            file1 = path.join(test_dir, 'file1')
+            file2 = path.join(sub_dir, 'file2')
+            file3 = path.join(sub_dir, 'file3')
+            with open(file1, 'w') as f:
+                f.write('Old pond')
+            with open(file2, 'w') as f:
+                f.write('A frog jumps in')
+            with open(file3, 'w') as f:
+                f.write('The sound of water')
+            expected = path.getsize(file1) + path.getsize(file2) + path.getsize(file3)
+            self.assertEqual(dir_size(test_dir), expected)
 
 
 if __name__ == '__main__':

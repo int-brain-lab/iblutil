@@ -1,4 +1,5 @@
 from itertools import takewhile
+from os import scandir
 from pathlib import Path
 import collections
 import colorlog
@@ -253,3 +254,27 @@ def rrmdir(folder: Path, levels: int = 0):
         to_remove = (folder, *[folder.parents[n] for n in range(levels)])
     # filter list to those that are empty; if statement always true as rmdir returns None
     return [f for f in takewhile(lambda f: not any(f.iterdir()), to_remove) if not f.rmdir()]
+
+
+def dir_size(directory: str | Path) -> int:
+    """
+    Calculate the total size of a directory including all its subdirectories and files.
+
+    Parameters
+    ----------
+    directory : str
+        The path to the directory for which the size needs to be calculated.
+
+    Returns
+    -------
+    int
+        The total size of the directory in bytes.
+    """
+    total_bytes = 0
+    with scandir(directory) as it:
+        for entry in it:
+            if entry.is_dir():
+                total_bytes += dir_size(entry.path)
+            else:
+                total_bytes += entry.stat().st_size
+    return total_bytes

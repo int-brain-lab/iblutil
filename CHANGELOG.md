@@ -3,13 +3,19 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.9.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.10.0]
+
+### Added
+
+- util.dir_size: method to determine size of directory in bytes
+
+## [1.9.0]
 
 ### Added
 
 - numerical.hash_uuids returns the hash of a collection of UUIDs
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.8.0]
+## [1.8.0]
 
 ### Modified
 
