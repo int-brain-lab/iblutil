@@ -194,10 +194,12 @@ class TestDirSize(unittest.TestCase):
                 f1.write('Old pond')
                 f2.write('A frog jumps in')
                 f3.write('The sound of water')
+            symlink = dir2.joinpath('symlink_file')
+            symlink.symlink_to(file1)
             expected = file1.stat().st_size + file2.stat().st_size + file3.stat().st_size
             self.assertEqual(util.dir_size(str(dir1)), expected)
             self.assertEqual(util.dir_size(dir1), expected)
-
+            self.assertEqual(util.dir_size(dir1, True), expected + file1.stat().st_size)
 
 if __name__ == '__main__':
     unittest.main(exit=False)
