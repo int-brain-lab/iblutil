@@ -201,5 +201,6 @@ class TestDirSize(unittest.TestCase):
             self.assertEqual(util.dir_size(dir1), expected)
             self.assertEqual(util.dir_size(dir1, True), expected + file1.stat().st_size)
 
+
 if __name__ == '__main__':
     unittest.main(exit=False)
