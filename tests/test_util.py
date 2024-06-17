@@ -187,7 +187,7 @@ class TestDirSize(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             sub_dir = path.join(test_dir, 'sub_dir')
             makedirs(sub_dir)
-            file1 = path.join(test_dir, 'file1')
+            file1 = Path(path.join(test_dir, 'file1'))
             file2 = path.join(sub_dir, 'file2')
             file3 = path.join(sub_dir, 'file3')
             with open(file1, 'w') as f:
