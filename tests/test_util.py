@@ -197,7 +197,7 @@ class TestDirSize(unittest.TestCase):
             with open(file3, 'w') as f:
                 f.write('The sound of water')
             expected = path.getsize(file1) + path.getsize(file2) + path.getsize(file3)
-            self.assertEqual(util.dir_size(test_dir), expected)
+            self.assertEqual(util.dir_size(str(test_dir)), expected)
             self.assertEqual(util.dir_size(Path(test_dir)), expected)
 
 
