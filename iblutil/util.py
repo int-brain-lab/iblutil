@@ -256,13 +256,13 @@ def rrmdir(folder: Path, levels: int = 0):
     return [f for f in takewhile(lambda f: not any(f.iterdir()), to_remove) if not f.rmdir()]
 
 
-def dir_size(directory: str | Path) -> int:
+def dir_size(directory: Union[str, Path]) -> int:
     """
     Calculate the total size of a directory including all its subdirectories and files.
 
     Parameters
     ----------
-    directory : str
+    directory : str | Path
         The path to the directory for which the size needs to be calculated.
 
     Returns
