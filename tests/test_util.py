@@ -187,7 +187,7 @@ class TestDirSize(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             sub_dir = path.join(test_dir, 'sub_dir')
             makedirs(sub_dir)
-            file1 = Path(path.join(test_dir, 'file1'))
+            file1 = path.join(test_dir, 'file1')
             file2 = path.join(sub_dir, 'file2')
             file3 = path.join(sub_dir, 'file3')
             with open(file1, 'w') as f:
@@ -198,6 +198,7 @@ class TestDirSize(unittest.TestCase):
                 f.write('The sound of water')
             expected = path.getsize(file1) + path.getsize(file2) + path.getsize(file3)
             self.assertEqual(util.dir_size(test_dir), expected)
+            self.assertEqual(util.dir_size(Path(test_dir)), expected)
 
 
 if __name__ == '__main__':
