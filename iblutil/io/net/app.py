@@ -398,9 +398,9 @@ class EchoProtocol(base.Communicator):
         echo_futures = map(lambda x: x[1], self._last_sent.values())
         for fut in filter(lambda f: not f.done(), echo_futures):
             fut.cancel('Close called on communicator')
-        if self.on_error_received:
+        if self.on_error_received and not self.on_error_received.done():
             self.on_error_received.cancel('Close called on communicator')
-        if self.on_eof_received:
+        if self.on_eof_received and not self.on_eof_received.done():
             self.on_eof_received.cancel('Close called on communicator')
         if self.on_connection_lost and not self.on_connection_lost.done():
             self.on_connection_lost.set_result('Close called on communicator')
@@ -607,6 +607,11 @@ class Services(base.Service, UserDict):
             for rig in self.values():
                 # FIXME This won't work; unawaited call
                 rig.assign_callback(base.ExpMessage.ALYX, lambda _: rig.alyx(alyx))
+
+    @property
+    def is_connected(self) -> bool:
+        """bool: All services are connected."""
+        return any(self.values()) and all(map(lambda rig: rig.is_connected, self.values()))
 
     def assign_callback(self, event, callback, return_service=False):
         """
