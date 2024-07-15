@@ -12,6 +12,7 @@ from iblutil.io.net import base, app
 ver = (getattr(sys.version_info, v) for v in ('major', 'minor', 'micro'))
 ver = Version('.'.join(map(str, ver)))
 
+
 class TestBase(unittest.TestCase):
     """Test for base network utils.
 

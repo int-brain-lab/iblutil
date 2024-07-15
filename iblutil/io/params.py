@@ -148,7 +148,7 @@ class FileLock:
         self._logger = log or logging.getLogger(__name__)
         self.timeout = timeout
         self.timeout_action = timeout_action
-        if not self.timeout_action in ('delete', 'raise'):
+        if self.timeout_action not in ('delete', 'raise'):
             raise ValueError(f'Invalid timeout action: {self.timeout_action}')
         self._poll_freq = 0.2
 
@@ -158,15 +158,16 @@ class FileLock:
 
     async def _lock_check_async(self):
         while self.lockfile.exists():
+            assert self._poll_freq > 0
             await asyncio.sleep(self._poll_freq)
 
     def __enter__(self):
         # if a lock file exists retries n times to see if it exists
         attempts = 0
         n_attempts = 5 if self.timeout else inf
-        timeout = self.timeout / n_attempts if self.timeout else self._poll_freq
+        timeout = (self.timeout / n_attempts) if self.timeout else self._poll_freq
 
-        while self.lockfile.exists() or attempts <= n_attempts:
+        while self.lockfile.exists() and attempts < n_attempts:
             self._logger.info('file lock found, waiting %.2f seconds %s', timeout, self.lockfile)
             time.sleep(timeout)
             attempts += 1
@@ -174,7 +175,8 @@ class FileLock:
         # if the file still exists after 5 attempts, remove it as it's a job that went wrong
         if self.lockfile.exists():
             with open(self.lockfile, 'r') as fp:
-                self._logger.debug('file lock contents: %s', json.load(fp))
+                _contents = json.load(fp) if self.lockfile.stat().st_size else '<empty>'
+                self._logger.debug('file lock contents: %s', _contents)
             if self.timeout_action == 'delete':
                 self._logger.info('stale file lock found, deleting %s', self.lockfile)
                 self.lockfile.unlink()
@@ -188,10 +190,11 @@ class FileLock:
     async def __aenter__(self):
         # if a lock file exists wait until timeout before removing
         try:
-            await asyncio.wait_for(self._lock_check_async(), timeout=self.timeout)
+            await asyncio.wait_for(self._lock_check_async(), timeout=self.timeout)  # py3.11 use with asyncio.timeout
         except asyncio.TimeoutError as e:
             with open(self.lockfile, 'r') as fp:
-                self._logger.debug('file lock contents: %s', json.load(fp))
+                _contents = json.load(fp) if self.lockfile.stat().st_size else '<empty>'
+                self._logger.debug('file lock contents: %s', _contents)
             if self.timeout_action == 'raise':
                 raise e
             self._logger.info('stale file lock found, deleting %s', self.lockfile)
