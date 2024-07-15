@@ -1,10 +1,12 @@
 from itertools import takewhile
+from os import scandir
 from pathlib import Path
 import collections
 import colorlog
 import copy
 import logging
 import sys
+from typing import Union
 
 import numpy as np
 
@@ -253,3 +255,31 @@ def rrmdir(folder: Path, levels: int = 0):
         to_remove = (folder, *[folder.parents[n] for n in range(levels)])
     # filter list to those that are empty; if statement always true as rmdir returns None
     return [f for f in takewhile(lambda f: not any(f.iterdir()), to_remove) if not f.rmdir()]
+
+
+def dir_size(directory: Union[str, Path], follow_symlinks: bool = False) -> int:
+    """
+    Calculate the total size of a directory including all its subdirectories and files.
+
+    Parameters
+    ----------
+    directory : str | Path
+        The path to the directory for which the size needs to be calculated.
+    follow_symlinks : bool, optional
+        Whether to follow symbolic links when calculating the size. Default is False.
+
+    Returns
+    -------
+    int
+        The total size of the directory in bytes.
+    """
+    total_bytes = 0
+    with scandir(directory) as it:
+        for entry in it:
+            if entry.is_symlink() and not follow_symlinks:
+                continue
+            elif entry.is_dir():
+                total_bytes += dir_size(entry.path, follow_symlinks)
+            elif entry.is_file():
+                total_bytes += entry.stat().st_size
+    return total_bytes

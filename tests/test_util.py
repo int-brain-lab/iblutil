@@ -180,5 +180,27 @@ class TestRrmdir(unittest.TestCase):
             self.assertTrue(file.exists())
 
 
+class TestDirSize(unittest.TestCase):
+
+    def test_dir_size(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dir1 = Path(temp_dir)
+            dir2 = Path(dir1).joinpath('sub_dir')
+            dir2.mkdir()
+            file1 = dir1.joinpath('file1')
+            file2 = dir2.joinpath('file2')
+            file3 = dir2.joinpath('file3')
+            with open(file1, 'w') as f1, open(file2, 'w') as f2, open(file3, 'w') as f3:
+                f1.write('Old pond')
+                f2.write('A frog jumps in')
+                f3.write('The sound of water')
+            symlink = dir2.joinpath('symlink_file')
+            symlink.symlink_to(file1)
+            expected = file1.stat().st_size + file2.stat().st_size + file3.stat().st_size
+            self.assertEqual(util.dir_size(str(dir1)), expected)
+            self.assertEqual(util.dir_size(dir1), expected)
+            self.assertEqual(util.dir_size(dir1, True), expected + file1.stat().st_size)
+
+
 if __name__ == '__main__':
     unittest.main(exit=False)
