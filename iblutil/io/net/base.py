@@ -305,6 +305,9 @@ class Service(ABC):
         any, None
             Optional extra data.
         """
+        exp_ref = exp_ref or None
+        if isinstance(exp_ref, dict):
+            exp_ref = '_'.join(map(str, (exp_ref['date'], int(exp_ref['sequence']), exp_ref['subject'])))
         return ExpMessage.EXPSTART, exp_ref, data
 
     @abstractmethod
