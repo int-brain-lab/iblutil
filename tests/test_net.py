@@ -12,7 +12,8 @@ from iblutil.io.net import base, app
 ver = (getattr(sys.version_info, v) for v in ('major', 'minor', 'micro'))
 ver = Version('.'.join(map(str, ver)))
 
-class TestBase(unittest.TestCase):
+
+class TestBase(unittest.IsolatedAsyncioTestCase):
     """Test for base network utils.
 
     NB: This requires internet access.
@@ -27,7 +28,7 @@ class TestBase(unittest.TestCase):
         self.assertEqual(expected, base.validate_uri(uri[:-5], default_port=9999))
         uri = base.validate_uri(ipaddress.ip_address('192.168.0.1'), default_port=9999)
         self.assertEqual(expected, uri)
-        self.assertEqual('udp://foobar:10001', base.validate_uri('foobar', resolve_host=False))
+        self.assertEqual('udp://foobar:11001', base.validate_uri('foobar', resolve_host=False))
         # Check IP resolved
         uri = base.validate_uri('http://google.com:80', resolve_host=True)
         expected = (ipaddress.IPv4Address, ipaddress.IPv6Address)
@@ -89,17 +90,17 @@ class TestBase(unittest.TestCase):
             decoded = base.Communicator.decode(data + b'"')
             self.assertEqual(decoded, '[null, 21, "message"]"')
 
-    def test_is_success(self):
+    async def test_is_success(self):
         """Tests for iblutil.io.net.base.is_success function."""
         # Expect True only when set_result has been called.
-        fut = asyncio.Future()
+        fut = asyncio.get_event_loop().create_future()
         self.assertFalse(base.is_success(fut))
         fut.set_result(None)
         self.assertTrue(base.is_success(fut))
-        fut = asyncio.Future()
+        fut = asyncio.get_event_loop().create_future()
         fut.cancel()
         self.assertFalse(base.is_success(fut))
-        fut = asyncio.Future()
+        fut = asyncio.get_event_loop().create_future()
         fut.set_exception(RuntimeError)
         self.assertFalse(base.is_success(fut))
 
@@ -424,7 +425,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             await self.server_1.init('foo', addr=addr)
 
         self.assertEqual(2, callback.call_count)
-        callback.assert_called_with(['foo'], ('127.0.0.1', 10001))
+        callback.assert_called_with(['foo'], ('127.0.0.1', 11001))
 
         # Check return_service arg
         callback2 = mock.MagicMock(spec_set=True)
@@ -432,7 +433,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         for addr in map(lambda x: x._socket.getsockname(), clients):
             await self.server_1.init('foo', addr=addr)
         self.assertEqual(2, callback2.call_count)
-        callback2.assert_called_with(['foo'], ('127.0.0.1', 10001), self.client_2)
+        callback2.assert_called_with(['foo'], ('127.0.0.1', 11001), self.client_2)
 
         # Check validation
         with self.assertRaises(TypeError):
