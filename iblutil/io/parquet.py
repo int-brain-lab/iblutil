@@ -21,7 +21,7 @@ def load(filename):
     try:
         metadata = json.loads(table.schema.metadata[b'one_metadata'])
     except KeyError:
-        _logger.debug("No parquet metadata in %s" % filename)
+        _logger.debug('No parquet metadata in %s', filename)
         metadata = {}
     df = table.to_pandas()
     return df, metadata

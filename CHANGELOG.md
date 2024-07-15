@@ -3,7 +3,20 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.10.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.11.0]
+
+### Added
+
+- io.net.base.ExpStatus: standard enumeration for UDP experiment status messages
+- io.net.base.is_success: function to determine if future resolved without cancellation or error
+- io.params.FileLock: context manager for checking for file access flag file
+
+### Modified
+
+- io.net.base.Service: protocol versioning
+- io.net.base.ExpMessage: support bitwise operations and iteration in 3.10
+
+## [1.10.0]
 
 ### Added
 
