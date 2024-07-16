@@ -583,15 +583,13 @@ class Services(base.Service, UserDict):
     """Handler for multiple remote rig services."""
     __slots__ = ('timeout', 'server')
 
-    def __init__(self, remote_rigs, alyx=None, timeout=10.):
+    def __init__(self, remote_rigs, timeout=10.):
         """Handler for multiple remote rig services.
 
         Parameters
         ----------
         remote_rigs : list(iblutil.io.net.base.Service)
             A list of remote rig service objects.
-        alyx : one.webclient.AlyxClient
-            An optional Alyx instance to send on request.
         timeout : float
             How long to wait for response from client(s).
         """
@@ -601,12 +599,6 @@ class Services(base.Service, UserDict):
             raise TypeError(f'Remote services must be of type {type(base.Service)}')
         self.data = MappingProxyType({rig.name: rig for rig in remote_rigs})  # Ensure immutable
         self.timeout = timeout
-
-        # Register callbacks so that if an Alyx instance is requested the provided token is sent.
-        if alyx:
-            for rig in self.values():
-                # FIXME This won't work; unawaited call
-                rig.assign_callback(base.ExpMessage.ALYX, lambda _: rig.alyx(alyx))
 
     @property
     def is_connected(self) -> bool:
@@ -682,7 +674,7 @@ class Services(base.Service, UserDict):
             task = asyncio.create_task(_return_data(rig, rig.on_event(event)))
             tasks.add(task)
 
-        if self.timeout:  # TODO with asyncio.timeout context manager
+        if self.timeout:  # py3.11 with asyncio.timeout context manager
             _, pending = await asyncio.wait(
                 tasks, timeout=self.timeout, return_when=asyncio.ALL_COMPLETED
             )

@@ -6,6 +6,7 @@ from unittest import mock
 import ipaddress
 import socket
 from packaging.version import Version
+from datetime import date
 
 from iblutil.io.net import base, app
 
@@ -146,6 +147,16 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(base.ExpMessage.EXPINIT.value, evt)
         self.assertIn('Callback failed', err)
 
+        # Check behaviour when future already done
+        fut = asyncio.get_running_loop().create_future()
+        self.server.assign_callback('EXPSTART', fut)
+        fut.set_result(True)
+        task = asyncio.create_task(self.client.on_event(2))
+        with self.assertLogs(self.server.logger, logging.WARNING) as log:
+            base.Communicator._receive(self.server, b'[2, null]', self.client._socket.getsockname())
+            self.assertEqual(1, len(log.records))
+            self.assertRegex(log.records[-1].getMessage(), 'Future .+ already resolved')
+
     async def test_on_event(self):
         """Test on_event method as well as init, stop, etc."""
         # INIT
@@ -177,12 +188,21 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         await self.client.start('2020-01-01_1_baz', {'foo': 'bar'})
         actual, _ = await task
         self.assertEqual(['2020-01-01_1_baz', {'foo': 'bar'}], actual)
+        task = asyncio.create_task(self.server.on_event('expstart'))
+        ref = {'subject': 'baz', 'date': date(2020, 1, 1), 'sequence': 1}
+        await self.client.start(ref, {'foo': 'bar'})
+        actual, _ = await task
+        self.assertEqual(['2020-01-01_1_baz', {'foo': 'bar'}], actual)
 
         # STATUS
         task = asyncio.create_task(self.server.on_event('EXPSTATUS'))
         await self.client.status(base.ExpStatus.STOPPED)
         actual, _ = await task
         self.assertEqual([base.ExpStatus.STOPPED.value], actual)
+        task = asyncio.create_task(self.server.on_event('EXPSTATUS'))
+        await self.client.status('CONNECTED')
+        actual, _ = await task
+        self.assertEqual([base.ExpStatus.CONNECTED.value], actual)
 
         # INFO
         task = asyncio.create_task(self.server.on_event('expinfo'))
@@ -328,6 +348,14 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.client.on_error_received.cancelled())
         # self.assertEqual(-1, self.client._socket.fileno())  # Closed later on in loop
 
+    async def test_on_error_received(self):
+        """Test for on_error_received callback."""
+        ex = ValueError('foo')
+        with self.assertLogs(self.client.name, logging.ERROR):
+            self.client.error_received(ex)
+        self.assertTrue(self.client.on_error_received.done())
+        self.assertEqual(ex, self.client.on_error_received.result())
+
     def tearDown(self):
         self.client.close()
         self.server.close()
@@ -410,7 +438,10 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         """Test Services.close method"""
         clients = [self.client_1, self.client_2]
         assert all(x.is_connected for x in clients)
-        app.Services(clients).close()
+        services = app.Services(clients)
+        self.assertTrue(services.is_connected)
+        services.close()
+        self.assertFalse(services.is_connected)
         self.assertTrue(not any(x.is_connected for x in clients))
 
     async def test_assign(self):
@@ -445,6 +476,12 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({'client1': 1, 'client2': 1}, removed)
         removed = services.clear_callbacks('EXPINIT')
         self.assertEqual({'client1': 2, 'client2': 2}, removed)
+        # Check futures cancelled
+        fut = asyncio.get_running_loop().create_future()
+        services.assign_callback('EXPINIT', fut)
+        assert not fut.cancelled()
+        services.clear_callbacks('EXPINIT')
+        self.assertTrue(fut.cancelled())
 
     async def test_init(self):
         """Test init of services.
@@ -508,6 +545,16 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         await services.start(ref)
         for client in clients:
             client.start.assert_awaited_once_with(ref, data=None)
+
+        # Info
+        await services.info(base.ExpStatus.RUNNING, {'exp_ref': ref})
+        for client in clients:
+            client.info.assert_awaited_once_with(base.ExpStatus.RUNNING, data={'exp_ref': ref})
+
+        # Status
+        await services.status(base.ExpStatus.STOPPED)
+        for client in clients:
+            client.status.assert_awaited_once_with(base.ExpStatus.STOPPED)
 
         # Stop
         await services.stop(immediately=True)
