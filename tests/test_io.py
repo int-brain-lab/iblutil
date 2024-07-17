@@ -184,7 +184,7 @@ class TestFileLock(unittest.IsolatedAsyncioTestCase):
 
             # async with params.FileLock(self.file, timeout=1e-3, timeout_action='raise') as lock:
             #     ...
-        sleep_mock.assert_awaited_with(lock._poll_freq)
+        sleep_mock.assert_awaited_with(lock._async_poll_freq)
         msg = next((x.getMessage() for x in lg.records if x.levelno == 10), None)
         self.assertEqual('file lock contents: <empty>', msg)
 
@@ -197,7 +197,7 @@ class TestFileLock(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(self.lock_file.exists())
                 with open(self.lock_file, 'r') as fp:
                     lock_info = json.load(fp)
-            self.assertCountEqual(('datetime', 'hostname'), lock_info)
+            self.assertCountEqual(('datetime', 'hostname', 'pid'), lock_info)
         self.assertFalse(self.lock_file.exists(), 'Failed to remove lock file upon exit of context manager')
 
 

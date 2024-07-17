@@ -144,22 +144,66 @@ def write(str_params, par):
 
 class FileLock:
     def __init__(self, filename, log=None, timeout=10, timeout_action='delete'):
+        """
+        A context manager to ensure a file is not written to.
+
+        This context manager checks whether a lock file already exists, indicating that the
+        filename is currently being written to by another process, and waits until it is free
+        before entering.  If the lock file is not removed within the timeout period, it is either
+        forcebly removed (assumes other process hanging or killed), or raises an exception.
+
+        Before entering, a new lock file is created, containing the hostname, datetime and pid,
+        then subsequenctly removed upon exit.
+
+        Parameters
+        ----------
+        filename : pathlib.Path, str
+            A filepath to 'lock'.
+        log : logging.Logger
+            A logger instance to use.
+        timeout : float
+            How long to wait before either raising an exception or deleting the previous lock file.
+        timeout_action : {'delete', 'raise'} str
+            Action to take if previous lock file remains throughout timeout period. Either delete
+            the old lock file or raise an exception.
+
+        Examples
+        --------
+        Ensure a file is not being written to by another process before writing
+
+        >>> with FileLock(filename, timeout_action='delete'):
+        >>>     with open(filename, 'w') as fp:
+        >>>         fp.write(r'{"foo": "bar"}')
+
+        Asychronous implementation example with raise behaviour
+
+        >>> try:
+        >>>     async with FileLock(filename, timeout_action='raise'):
+        >>>         with open(filename, 'w') as fp:
+        >>>             fp.write(r'{"foo": "bar"}')
+        >>> except asyncio.TimeoutError:
+        >>>     print(f'failed to write to {filename}')
+        """
         self.filename = Path(filename)
-        self._logger = log or logging.getLogger(__name__)
+        self._logger = log or __name__
+        if not isinstance(log, logging.Logger):
+            self._logger = logging.getLogger(self._logger)
+
         self.timeout = timeout
         self.timeout_action = timeout_action
         if self.timeout_action not in ('delete', 'raise'):
             raise ValueError(f'Invalid timeout action: {self.timeout_action}')
-        self._poll_freq = 0.2
+        self._async_poll_freq = 0.2  # how long to sleep between lock file checks in async mode
 
     @property
     def lockfile(self):
+        """pathlib.Path: the lock filepath."""
         return self.filename.with_suffix('.lock')
 
     async def _lock_check_async(self):
         while self.lockfile.exists():
-            assert self._poll_freq > 0
-            await asyncio.sleep(self._poll_freq)
+            assert self._async_poll_freq > 0
+            await asyncio.sleep(self._async_poll_freq)
 
     def __enter__(self):
         # if a lock file exists retries n times to see if it exists
@@ -202,7 +246,8 @@ class FileLock:
 
         # add in the lock file, add some metadata to ease debugging if one gets stuck
         with open(self.lockfile, 'w') as fp:
-            json.dump(dict(datetime=datetime.utcnow().isoformat(), hostname=str(socket.gethostname)), fp)
+            info = dict(datetime=datetime.utcnow().isoformat(), hostname=str(socket.gethostname), pid=os.getpid())
+            json.dump(info, fp)
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self.lockfile.unlink()
