@@ -2,7 +2,6 @@ import asyncio
 import re
 import json
 import socket
-import uuid
 import warnings
 import logging
 from asyncio import isfuture
@@ -35,20 +34,6 @@ def external_ip():
         The computer's default WAN IP address.
     """
     return ipaddress.ip_address(urllib.request.urlopen('https://ident.me').read().decode('utf8'))
-
-
-def get_mac() -> str:
-    """
-    Fetch the machine's unique MAC address formatted according to IEEE 802 specifications.
-
-    Returns
-    -------
-    str
-        The MAC address of the device formatted in six groups of two
-        hexadecimal digits separated by hyphens in transmission order
-        (e.g., 'BA-DB-AD-C0-FF-EE').
-    """
-    return uuid.getnode().to_bytes(6, 'big').hex('-').upper()
 
 
 def is_valid_ip(ip_address) -> bool:

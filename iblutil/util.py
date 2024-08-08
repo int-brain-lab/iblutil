@@ -1,3 +1,4 @@
+import uuid
 from itertools import takewhile
 from os import scandir
 from pathlib import Path
@@ -283,3 +284,17 @@ def dir_size(directory: Union[str, Path], follow_symlinks: bool = False) -> int:
             elif entry.is_file():
                 total_bytes += entry.stat().st_size
     return total_bytes
+
+
+def get_mac() -> str:
+    """
+    Fetch the machine's unique MAC address formatted according to IEEE 802 specifications.
+
+    Returns
+    -------
+    str
+        The MAC address of the device formatted in six groups of two
+        hexadecimal digits separated by hyphens in transmission order
+        (e.g., 'BA-DB-AD-C0-FF-EE').
+    """
+    return uuid.getnode().to_bytes(6, 'big').hex('-').upper()

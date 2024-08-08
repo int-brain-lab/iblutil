@@ -3,7 +3,13 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.12.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.12.1]
+
+### Modified
+
+- Moved get_mac() to util
+
+## [1.12.0]
 
 ### Added
 
