@@ -3,6 +3,7 @@ import types
 from pathlib import Path
 import tempfile
 import logging
+from unittest.mock import patch
 
 import numpy as np
 
@@ -200,6 +201,13 @@ class TestDirSize(unittest.TestCase):
             self.assertEqual(util.dir_size(str(dir1)), expected)
             self.assertEqual(util.dir_size(dir1), expected)
             self.assertEqual(util.dir_size(dir1, True), expected + file1.stat().st_size)
+
+
+class TestGetMac(unittest.TestCase):
+
+    def test_get_mac(self):
+        with patch('iblutil.util.uuid.getnode', return_value=205452675710958):
+            self.assertEqual(util.get_mac(), 'BA-DB-AD-C0-FF-EE')
 
 
 if __name__ == '__main__':
