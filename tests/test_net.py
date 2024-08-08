@@ -1,3 +1,4 @@
+from unittest.mock import patch
 import sys
 import asyncio
 import logging
@@ -9,6 +10,7 @@ from packaging.version import Version
 from datetime import date
 
 from iblutil.io.net import base, app
+from iblutil.io.net.base import get_mac
 
 ver = (getattr(sys.version_info, v) for v in ('major', 'minor', 'micro'))
 ver = Version('.'.join(map(str, ver)))
@@ -48,6 +50,10 @@ class TestBase(unittest.IsolatedAsyncioTestCase):
     def test_external_ip(self):
         """Test for external_ip"""
         self.assertFalse(ipaddress.ip_address(base.external_ip()).is_private)
+
+    def test_get_mac(self):
+        with patch('iblutil.io.net.base.uuid.getnode', return_value=205452675710958):
+            self.assertEqual(get_mac(), 'BA-DB-AD-C0-FF-EE')
 
     def test_ExpMessage(self):
         """Test for ExpMessage.validate method."""
