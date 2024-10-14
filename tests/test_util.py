@@ -210,5 +210,25 @@ class TestGetMac(unittest.TestCase):
             self.assertEqual(util.get_mac(), 'BA-DB-AD-C0-FF-EE')
 
 
+class TestEnsureList(unittest.TestCase):
+    """Test ensure_list function."""
+
+    def test_ensure_list(self):
+        """Test ensure_list function."""
+        x = [1, 2, 3]
+        self.assertIs(x, util.ensure_list(x))
+        x = tuple(x)
+        self.assertIs(x, util.ensure_list(x))
+        # Shouldn't iterate over strings or dicts
+        x = '123'
+        self.assertEqual([x], util.ensure_list(x))
+        x = {'1': 1, '2': 2, '3': 3}
+        self.assertEqual([x], util.ensure_list(x))
+        # Check exclude_type param behaviour
+        x = np.array([1, 2, 3])
+        self.assertIs(x, util.ensure_list(x))
+        self.assertEqual([x], util.ensure_list(x, exclude_type=(np.ndarray)))
+
+
 if __name__ == '__main__':
     unittest.main(exit=False)

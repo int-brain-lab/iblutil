@@ -3,7 +3,17 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.12.1]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.13.0]
+
+### Added
+
+- util.ensure_list: function returning input wrapped in list if not an iterator or a member of specific iterable classes
+
+### Modified
+
+- io.net.app.EchoProtocol.confirmed_send: more informative timeout error message
+
+## [1.12.1]
 
 ### Modified
 
@@ -13,7 +23,7 @@
 
 ### Added
 
-- io.net.base.get_mac: function returning the machine's unique MAC address formatted according to IEEE 802 specifications.
+- io.net.base.get_mac: function returning the machine's unique MAC address formatted according to IEEE 802 specifications
 
 ## [1.11.0]
 
