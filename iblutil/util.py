@@ -7,7 +7,7 @@ import colorlog
 import copy
 import logging
 import sys
-from typing import Union
+from typing import Union, Iterable
 
 import numpy as np
 
@@ -298,3 +298,29 @@ def get_mac() -> str:
         (e.g., 'BA-DB-AD-C0-FF-EE').
     """
     return uuid.getnode().to_bytes(6, 'big').hex('-').upper()
+
+
+def ensure_list(value, exclude_type=(str, dict)):
+    """Ensure input is a list.
+
+    Wraps `value` in a list if not already an iterator or if it is a member of specific
+    iterable classes.
+
+    To allow users the option of passing a single value or multiple values, this function
+    will wrap the former in a list and by default will consider str and dict instances as
+    a single value. This function is useful because it treats tuples, lists, sets, and
+    generators all as 'lists', but not dictionaries and strings.
+
+    Parameters
+    ----------
+    value : any
+        Input to ensure list.
+    exclude_type : tuple, optional
+        A list of iterable classes to wrap in a list.
+
+    Returns
+    -------
+    Iterable
+        Either `value` if iterable and not in `exclude_type` list, or `value` wrapped in a list.
+    """
+    return [value] if isinstance(value, exclude_type) or not isinstance(value, Iterable) else value

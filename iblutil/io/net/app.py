@@ -377,7 +377,7 @@ class EchoProtocol(base.Communicator):
             await asyncio.wait_for(echo_future, timeout=timeout)
         except asyncio.TimeoutError:
             self.close()
-            raise TimeoutError('Failed to receive client response in time')
+            raise TimeoutError(f'Failed to receive client response in time ({self.name}: {self.server_uri})')
         except RuntimeError:
             self.close()
             raise RuntimeError('Unexpected response from server')
