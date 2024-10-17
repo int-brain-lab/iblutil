@@ -242,6 +242,5 @@ class TestLoadTaskData(unittest.TestCase):
         assert bpod_data_full[-1] == bpod_data[0]
 
 
-
 if __name__ == '__main__':
     unittest.main(exit=False, verbosity=2)
