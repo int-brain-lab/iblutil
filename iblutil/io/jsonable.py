@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Tuple
 
 import pandas as pd
 
@@ -27,7 +27,7 @@ def append(file, data):
     _write(file, data, 'a')
 
 
-def load_task_jsonable(jsonable_file: str | Path, offset: int | None = None) -> tuple[pd.DataFrame, list[Any]]:
+def load_task_jsonable(jsonable_file: str | Path, offset: int | None = None) -> Tuple[pd.DataFrame, List[Any]]:
     """
     Reads in a task data jsonable file and returns a trials dataframe and a bpod data list.
 

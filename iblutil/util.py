@@ -7,7 +7,7 @@ import colorlog
 import copy
 import logging
 import sys
-from typing import Union, Iterable
+from typing import Union, Iterable, Sequence
 
 import numpy as np
 
@@ -21,6 +21,11 @@ LOG_COLORS = {
     'WARNING': 'bold_yellow',
     'ERROR': 'bold_red',
     'CRITICAL': 'bold_purple'}
+
+
+def Listable(t):
+    """Return a typing.Union if the input and sequence of input."""
+    return Union[t, Sequence[t]]
 
 
 class Bunch(dict):

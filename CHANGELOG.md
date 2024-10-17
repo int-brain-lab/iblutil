@@ -7,7 +7,8 @@
 
 ### Added
 
-- io.jsonable.load_task_jsonable: read and format iblrig raw data to a trials table Dataframe and a list of raw Bpod trials 
+- io.jsonable.load_task_jsonable: read and format iblrig raw data to a trials table Dataframe and a list of raw Bpod trials
+- util.Listable: returns a typing class that is the union of input class and a sequence thereof
 
 ## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.13.0]
 

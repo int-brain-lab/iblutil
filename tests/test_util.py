@@ -1,5 +1,6 @@
 import unittest
 import types
+import typing
 from pathlib import Path
 import tempfile
 import logging
@@ -228,6 +229,17 @@ class TestEnsureList(unittest.TestCase):
         x = np.array([1, 2, 3])
         self.assertIs(x, util.ensure_list(x))
         self.assertEqual([x], util.ensure_list(x, exclude_type=(np.ndarray)))
+
+
+class TestListable(unittest.TestCase):
+    """Test Listable typing class."""
+
+    def test_listable(self):
+        """Test listable type from given class."""
+        listable = util.Listable(str)
+        self.assertIs(listable, typing.Union[str, typing.Sequence[str]])
+        listable = util.Listable(dict)
+        self.assertIs(listable, typing.Union[dict, typing.Sequence[dict]])
 
 
 if __name__ == '__main__':
