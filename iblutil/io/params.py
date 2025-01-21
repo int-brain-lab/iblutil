@@ -111,12 +111,15 @@ def read(str_params, default=None):
     pfile = getfile(str_params)
     par_dict = as_dict(default) or {}
     if Path(pfile).exists():
-        with open(pfile) as fil:
-            file_pars = json.loads(fil.read())
+        try:
+            with open(pfile) as fil:
+                file_pars = json.loads(fil.read())
+        except json.JSONDecodeError as e:
+            e.args = (f'Error decoding json: {pfile}',) + e.args
+            raise e
         par_dict.update(file_pars)
     elif default is None:  # No defaults provided
         raise FileNotFoundError(f'Parameter file {pfile} not found')
-
     if not Path(pfile).exists() or par_dict.keys() > file_pars.keys():
         # write the new parameter file with the extra param
         write(str_params, par_dict)
