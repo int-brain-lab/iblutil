@@ -361,7 +361,6 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
         self.server.close()
 
 
-@unittest.skipIf(ver < Version('3.9'), 'only version 3.9 or later supported')
 class TestWebSockets(unittest.IsolatedAsyncioTestCase):
     """Test net.app.EchoProtocol with a TCP/IP transport layer"""
 
