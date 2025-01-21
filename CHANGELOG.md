@@ -3,14 +3,20 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.14.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.15.0]
+
+### Modified
+- upgrade minimum supported Python version to 3.10
+- io.params.read returns the json file name if a decoding error occurs
+
+## [1.14.0]
 
 ### Added
 
 - io.jsonable.load_task_jsonable: read and format iblrig raw data to a trials table Dataframe and a list of raw Bpod trials
 - util.Listable: returns a typing class that is the union of input class and a sequence thereof
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.13.0]
+## [1.13.0]
 
 ### Added
 
