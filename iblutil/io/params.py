@@ -115,7 +115,7 @@ def read(str_params, default=None):
             with open(pfile) as fil:
                 file_pars = json.loads(fil.read())
         except json.JSONDecodeError as e:
-            e.add_note(f'Error decoding json: {pfile}')
+            e.args = (f'Error decoding json: {pfile}',) + e.args
             raise e
         par_dict.update(file_pars)
     elif default is None:  # No defaults provided
