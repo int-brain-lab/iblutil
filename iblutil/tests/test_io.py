@@ -89,7 +89,7 @@ class TestBinary(unittest.TestCase):
         # Test conversion with when pqt file exists already
         self.temp_bin_path.with_suffix('.pqt').touch()
         with self.assertRaises(FileExistsError):
-            parquet_path = convert_to_parquet(self.temp_bin_path, self.dtype, delete_bin_file=True)
+            convert_to_parquet(self.temp_bin_path, self.dtype, delete_bin_file=True)
 
 
 class TestParquet(unittest.TestCase):
