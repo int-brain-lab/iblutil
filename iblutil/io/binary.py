@@ -1,11 +1,8 @@
 from pathlib import Path
 from typing import Union
-import logging
 
 import numpy as np
 import pandas as pd
-
-logger = logging.getLogger("__name__")
 
 
 def load_as_dataframe(
@@ -56,7 +53,6 @@ def convert_to_parquet(
     filepath_bin: Union[Path, str],
     dtype: np.dtype,
     delete_bin_file: bool = False,
-    loglevel: int = logging.DEBUG,
 ) -> Path:
     """
     Convert a binary file to a Parquet file using a specified NumPy structured data type.
@@ -70,8 +66,6 @@ def convert_to_parquet(
         Must be a structured datatype with fields.
     delete_bin_file : bool, optional
         If True, the original binary file will be deleted after conversion. Default is False.
-    loglevel : int, optional
-        The logging level for logging the conversion process. Default is logging.DEBUG.
 
     Returns
     -------
@@ -83,6 +77,8 @@ def convert_to_parquet(
     ------
     FileNotFoundError
         If the specified binary file does not exist.
+    IsADirectoryError
+        If the specified path is a directory instead of a file.
     ValueError
         If the provided dtype is not a NumPy structured datatype.
     """
@@ -90,10 +86,6 @@ def convert_to_parquet(
     filepath_bin = Path(filepath_bin)
     filepath_pqt = filepath_bin.with_suffix(".pqt")
     dataframe.to_parquet(filepath_pqt)
-    logger.log(
-        loglevel,
-        f"'{filepath_bin.name}' converted to parqet and stored as '{filepath_pqt.name}'",
-    )
     if delete_bin_file:
         filepath_bin.unlink()
     return filepath_pqt
