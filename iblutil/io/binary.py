@@ -77,6 +77,8 @@ def convert_to_parquet(
     ------
     FileNotFoundError
         If the specified binary file does not exist.
+    FileExistsError
+        If the output file already exists.
     IsADirectoryError
         If the specified path is a directory instead of a file.
     ValueError
@@ -85,6 +87,8 @@ def convert_to_parquet(
     dataframe = load_as_dataframe(filepath_bin=filepath_bin, dtype=dtype)
     filepath_bin = Path(filepath_bin)
     filepath_pqt = filepath_bin.with_suffix(".pqt")
+    if filepath_pqt.exists():
+        raise FileExistsError(filepath_pqt)
     dataframe.to_parquet(filepath_pqt)
     if delete_bin_file:
         filepath_bin.unlink()

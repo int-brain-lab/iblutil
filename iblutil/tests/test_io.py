@@ -85,6 +85,12 @@ class TestBinary(unittest.TestCase):
         self.assertTrue(parquet_path.exists())
         self.assertFalse(self.temp_bin_path.exists())  # Check if the binary file was deleted
 
+    def test_convert_to_parquet_exists(self):
+        # Test conversion with when pqt file exists already
+        self.temp_bin_path.with_suffix('.pqt').touch()
+        with self.assertRaises(FileExistsError):
+            parquet_path = convert_to_parquet(self.temp_bin_path, self.dtype, delete_bin_file=True)
+
 
 class TestParquet(unittest.TestCase):
 
