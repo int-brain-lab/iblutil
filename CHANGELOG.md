@@ -3,14 +3,21 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.14.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.15.0]
+
+### Added
+
+- io.binary.load_as_dataframe: read binary data as a Pandas DataFrame
+- io.binary.convert_to_parquet: convert a binary file to Parquet
+
+## [1.14.0]
 
 ### Added
 
 - io.jsonable.load_task_jsonable: read and format iblrig raw data to a trials table Dataframe and a list of raw Bpod trials
 - util.Listable: returns a typing class that is the union of input class and a sequence thereof
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.13.0]
+## [1.13.0]
 
 ### Added
 
