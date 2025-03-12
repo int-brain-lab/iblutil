@@ -132,7 +132,6 @@ class TestBinary(unittest.TestCase):
         self.assertEqual(data.tolist(), [(42, 42.0)])
 
 
-
 class TestParquet(unittest.TestCase):
 
     def test_uuids_conversions(self):
