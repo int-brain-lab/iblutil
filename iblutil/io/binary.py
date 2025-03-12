@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Union, BinaryIO
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 
@@ -106,7 +107,7 @@ def convert_to_parquet(
 
 
 def write_array(
-    fid: Union[BinaryIO, str, PathLike], array: np.typing.ArrayLike, dtype: np.dtype
+    fid: Union[BinaryIO, str, PathLike], array: npt.ArrayLike, dtype: np.dtype
 ):
     """
     Write a structured NumPy array to a binary file.
@@ -115,7 +116,7 @@ def write_array(
     ----------
     fid : bytes, str, IO
         The file path or file-like object where the structured array will be written.
-    array : np.typing.ArrayLike
+    array : npt.ArrayLike
         The input array to be written. It must have a maximum of two dimensions,
         and the last dimension must match the number of fields in the provided dtype.
     dtype : np.dtype
