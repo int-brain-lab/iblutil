@@ -41,7 +41,7 @@ def load_as_dataframe(
         raise FileNotFoundError(filepath_bin)
     if filepath_bin.is_dir():
         raise IsADirectoryError(filepath_bin)
-    if not hasattr(dtype, "fields") and dtype.fields is not None:
+    if not hasattr(dtype, "fields") or dtype.fields is not None:
         raise ValueError("dtype must be a NumPy structured datatype")
     structured_array = np.fromfile(
         file=filepath_bin, dtype=dtype, count=count, offset=offset

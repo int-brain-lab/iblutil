@@ -60,6 +60,11 @@ class TestBinary(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             load_as_dataframe('non_existent_file.bin', self.dtype)
 
+    def test_load_as_dataframe_incorrect_dtype(self):
+        # Test for ValueError on incorrect dtype
+        with self.assertRaises(ValueError):
+            load_as_dataframe(self.temp_bin_path, np.int32)
+
     def test_load_as_dataframe_is_a_directory(self):
         # Create a temporary directory and test if it raises IsADirectoryError
         with tempfile.TemporaryDirectory() as temp_dir:
