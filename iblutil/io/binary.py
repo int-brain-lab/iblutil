@@ -1,19 +1,24 @@
+from io import IOBase
+from os import PathLike
 from pathlib import Path
-from typing import Union
+from typing import Union, BinaryIO
 
 import numpy as np
 import pandas as pd
 
 
 def load_as_dataframe(
-    filepath_bin: Union[Path, str], dtype: np.dtype, count: int = -1, offset: int = 0
+    filepath_bin: Union[PathLike, str],
+    dtype: np.dtype,
+    count: int = -1,
+    offset: int = 0,
 ) -> pd.DataFrame:
     """
     Load a binary file into a pandas DataFrame using a specified NumPy structured data type.
 
     Parameters
     ----------
-    filepath_bin :Path or str
+    filepath_bin : Path or str
         The path to the binary file to be loaded. Can be a string or a Path object.
     dtype : np.dtype
         A NumPy structured data type that defines the format of the data in the binary file.
@@ -37,11 +42,16 @@ def load_as_dataframe(
     ValueError
         If the provided dtype is not a NumPy structured datatype.
     """
-    if not (filepath_bin := Path(filepath_bin)).exists():
+    filepath_bin = Path(filepath_bin)
+    if not filepath_bin.exists():
         raise FileNotFoundError(filepath_bin)
     if filepath_bin.is_dir():
         raise IsADirectoryError(filepath_bin)
-    if not hasattr(dtype, "fields") or dtype.fields is not None:
+    if (
+        not isinstance(dtype, np.dtype)
+        or not hasattr(dtype, "fields")
+        or dtype.fields is None
+    ):
         raise ValueError("dtype must be a NumPy structured datatype")
     structured_array = np.fromfile(
         file=filepath_bin, dtype=dtype, count=count, offset=offset
@@ -50,7 +60,7 @@ def load_as_dataframe(
 
 
 def convert_to_parquet(
-    filepath_bin: Union[Path, str],
+    filepath_bin: Union[PathLike, str],
     dtype: np.dtype,
     delete_bin_file: bool = False,
 ) -> Path:
@@ -93,3 +103,50 @@ def convert_to_parquet(
     if delete_bin_file:
         filepath_bin.unlink()
     return filepath_pqt
+
+
+def write_array(
+    fid: Union[BinaryIO, str, PathLike], array: np.typing.ArrayLike, dtype: np.dtype
+):
+    """
+    Write a structured NumPy array to a binary file.
+
+    Parameters
+    ----------
+    fid : bytes, str, IO
+        The file path or file-like object where the structured array will be written.
+    array : np.typing.ArrayLike
+        The input array to be written. It must have a maximum of two dimensions,
+        and the last dimension must match the number of fields in the provided dtype.
+    dtype : np.dtype
+        A structured NumPy datatype that defines the fields of the array.
+        It must be a valid structured dtype with fields.
+
+    Raises
+    ------
+    ValueError
+        If `dtype` is not a structured NumPy datatype.
+        If the input `array` has more than two dimensions.
+        If the last dimension of `array` does not match the number of fields in `dtype`.
+    FileExistsError
+        If `fid` represents a Path and the respective file already exists.
+    TypeError
+        If `fid` is not a stream and cannot be converted to a Path.
+    """
+    if (
+        not isinstance(dtype, np.dtype)
+        or not hasattr(dtype, "fields")
+        or dtype.fields is None
+    ):
+        raise ValueError("'dtype' must be a structured NumPy datatype")
+    array = np.array(array)
+    if array.ndim > 2:
+        raise ValueError("The array must have a maximum of two dimensions.")
+    if array.shape[-1] != len(dtype.fields):
+        raise ValueError(
+            "The array's last dimension must match the number of fields in 'dtype'."
+        )
+    if not isinstance(fid, IOBase) and Path(fid).exists():
+        raise FileExistsError(fid)
+    structured_data = np.rec.fromrecords(array).astype(dtype)
+    structured_data.tofile(fid)

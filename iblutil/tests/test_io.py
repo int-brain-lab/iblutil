@@ -10,7 +10,7 @@ import asyncio
 import numpy as np
 import pandas as pd
 
-from iblutil.io.binary import load_as_dataframe, convert_to_parquet
+from iblutil.io.binary import load_as_dataframe, convert_to_parquet, write_array
 from iblutil.io.parquet import uuid2np, np2uuid, np2str, str2np
 from iblutil.io import params
 import iblutil.io.jsonable as jsonable
@@ -63,6 +63,8 @@ class TestBinary(unittest.TestCase):
     def test_load_as_dataframe_incorrect_dtype(self):
         # Test for ValueError on incorrect dtype
         with self.assertRaises(ValueError):
+            load_as_dataframe(self.temp_bin_path, int)
+        with self.assertRaises(ValueError):
             load_as_dataframe(self.temp_bin_path, np.int32)
 
     def test_load_as_dataframe_is_a_directory(self):
@@ -95,6 +97,40 @@ class TestBinary(unittest.TestCase):
         self.temp_bin_path.with_suffix('.pqt').touch()
         with self.assertRaises(FileExistsError):
             convert_to_parquet(self.temp_bin_path, self.dtype, delete_bin_file=True)
+
+    def test_write_array_invalid_dtype(self):
+        # Test with an invalid dtype
+        with self.assertRaises(ValueError):
+            write_array(self.temp_bin_path, [1], np.dtype('float'))
+
+    def test_write_array_too_many_dimensions(self):
+        # Test with an array that has more than two dimensions
+        with self.assertRaises(ValueError):
+            write_array(self.temp_bin_path, [[[1, 2]], [[3, 4]]], self.dtype)
+
+    def test_write_array_shape_mismatch(self):
+        # Test with an array whose last dimension does not match dtype fields
+        self.temp_bin_path.unlink()
+        with self.assertRaises(ValueError):
+            write_array(self.temp_bin_path, [1], self.dtype)
+
+    def test_write_array_file_exists(self):
+        # Test with a file path that already exists
+        with self.assertRaises(FileExistsError):
+            write_array(self.temp_bin_path, [1, 2], self.dtype)
+
+    def test_write_array_invalid_file_type(self):
+        # Test with an invalid file identifier
+        with self.assertRaises(TypeError):
+            write_array(123, [1, 2], self.dtype)
+
+    def test_write_array(self):
+        # Test that data can be written
+        with self.temp_bin_path.open('wb') as f:
+            write_array(f, [42, 42], self.dtype)
+        data = np.fromfile(self.temp_bin_path, dtype=self.dtype)
+        self.assertEqual(data.tolist(), [(42, 42.0)])
+
 
 
 class TestParquet(unittest.TestCase):
