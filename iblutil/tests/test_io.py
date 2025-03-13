@@ -8,11 +8,128 @@ import json
 import asyncio
 
 import numpy as np
+import pandas as pd
 
+from iblutil.io.binary import load_as_dataframe, convert_to_parquet, write_array
 from iblutil.io.parquet import uuid2np, np2uuid, np2str, str2np
 from iblutil.io import params
 import iblutil.io.jsonable as jsonable
 from iblutil.numerical import intersect2d, ismember2d, ismember
+
+
+class TestBinary(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.temp_dir_path = Path(self.temp_dir.name)
+
+        self.temp_bin_path = self.temp_dir_path.joinpath('data.bin')
+        self.dtype = np.dtype([('field1', np.int32), ('field2', np.float32)])
+        sample_data = np.array([(1, 1.1), (2, 2.2), (3, 3.3)], dtype=self.dtype)
+        sample_data.tofile(self.temp_bin_path)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_load_as_dataframe(self):
+        # Test loading the binary file as a DataFrame
+        df = load_as_dataframe(self.temp_bin_path, self.dtype)
+        self.assertEqual(len(df), 3)
+        self.assertListEqual(list(df.columns), ['field1', 'field2'])
+        assert np.array_equal(df['field1'].values, np.array([1, 2, 3], dtype=np.int32))
+        assert np.array_equal(df['field2'].values, np.array([1.1, 2.2, 3.3], dtype=np.float32))
+
+    def test_load_as_dataframe_count(self):
+        # Test loading the binary file as a DataFrame (only first row)
+        df = load_as_dataframe(self.temp_bin_path, self.dtype, count=1)
+        self.assertEqual(len(df), 1)
+        self.assertListEqual(list(df.columns), ['field1', 'field2'])
+        assert np.array_equal(df['field1'].values, np.array([1], dtype=np.int32))
+        assert np.array_equal(df['field2'].values, np.array([1.1], dtype=np.float32))
+
+    def test_load_as_dataframe_offset(self):
+        # Test loading the binary file as a DataFrame (with offset)
+        df = load_as_dataframe(self.temp_bin_path, self.dtype, offset=8)
+        self.assertEqual(len(df), 2)
+        self.assertListEqual(list(df.columns), ['field1', 'field2'])
+        assert np.array_equal(df['field1'].values, np.array([2, 3], dtype=np.int32))
+        assert np.array_equal(df['field2'].values, np.array([2.2, 3.3], dtype=np.float32))
+
+    def test_load_as_dataframe_file_not_found(self):
+        # Test for FileNotFoundError
+        with self.assertRaises(FileNotFoundError):
+            load_as_dataframe('non_existent_file.bin', self.dtype)
+
+    def test_load_as_dataframe_incorrect_dtype(self):
+        # Test for ValueError on incorrect dtype
+        with self.assertRaises(ValueError):
+            load_as_dataframe(self.temp_bin_path, int)
+        with self.assertRaises(ValueError):
+            load_as_dataframe(self.temp_bin_path, np.int32)
+
+    def test_load_as_dataframe_is_a_directory(self):
+        # Create a temporary directory and test if it raises IsADirectoryError
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaises(IsADirectoryError):
+                load_as_dataframe(temp_dir, self.dtype)
+
+    def test_convert_to_parquet(self):
+        # Test converting the binary file to a Parquet file
+        parquet_path = convert_to_parquet(self.temp_bin_path, self.dtype)
+        self.assertTrue(parquet_path.exists())
+        self.assertEqual(parquet_path.suffix, '.pqt')
+
+        # Load the Parquet file back into a DataFrame and check its contents
+        df_parquet = pd.read_parquet(parquet_path)
+        self.assertEqual(len(df_parquet), 3)
+        self.assertListEqual(list(df_parquet.columns), ['field1', 'field2'])
+        assert np.array_equal(df_parquet['field1'].values, np.array([1, 2, 3], dtype=np.int32))
+        assert np.array_equal(df_parquet['field2'].values, np.array([1.1, 2.2, 3.3], dtype=np.float32))
+
+    def test_convert_to_parquet_delete(self):
+        # Test conversion with deletion of the binary file
+        parquet_path = convert_to_parquet(self.temp_bin_path, self.dtype, delete_bin_file=True)
+        self.assertTrue(parquet_path.exists())
+        self.assertFalse(self.temp_bin_path.exists())  # Check if the binary file was deleted
+
+    def test_convert_to_parquet_exists(self):
+        # Test conversion with when pqt file exists already
+        self.temp_bin_path.with_suffix('.pqt').touch()
+        with self.assertRaises(FileExistsError):
+            convert_to_parquet(self.temp_bin_path, self.dtype, delete_bin_file=True)
+
+    def test_write_array_invalid_dtype(self):
+        # Test with an invalid dtype
+        with self.assertRaises(ValueError):
+            write_array(self.temp_bin_path, [1], np.dtype('float'))
+
+    def test_write_array_too_many_dimensions(self):
+        # Test with an array that has more than two dimensions
+        with self.assertRaises(ValueError):
+            write_array(self.temp_bin_path, [[[1, 2]], [[3, 4]]], self.dtype)
+
+    def test_write_array_shape_mismatch(self):
+        # Test with an array whose last dimension does not match dtype fields
+        self.temp_bin_path.unlink()
+        with self.assertRaises(ValueError):
+            write_array(self.temp_bin_path, [1], self.dtype)
+
+    def test_write_array_file_exists(self):
+        # Test with a file path that already exists
+        with self.assertRaises(FileExistsError):
+            write_array(self.temp_bin_path, [1, 2], self.dtype)
+
+    def test_write_array_invalid_file_type(self):
+        # Test with an invalid file identifier
+        with self.assertRaises(TypeError):
+            write_array(123, [1, 2], self.dtype)
+
+    def test_write_array(self):
+        # Test that data can be written
+        with self.temp_bin_path.open('wb') as f:
+            write_array(f, [42, 42], self.dtype)
+        data = np.fromfile(self.temp_bin_path, dtype=self.dtype)
+        self.assertEqual(data.tolist(), [(42, 42.0)])
 
 
 class TestParquet(unittest.TestCase):
