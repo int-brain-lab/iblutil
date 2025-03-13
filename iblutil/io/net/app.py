@@ -500,7 +500,7 @@ class EchoProtocol(base.Communicator):
     # Factory methods for instantiating a server or client
 
     @staticmethod
-    async def server(server_uri, name=None, log=None, reuse_port=True, **kwargs) -> 'EchoProtocol':
+    async def server(server_uri, name=None, log=None, **kwargs) -> 'EchoProtocol':
         """
         Create a remote server instance.
 
@@ -511,11 +511,6 @@ class EchoProtocol(base.Communicator):
             To use TCP/IP instead of the default UDP, add a 'ws://' scheme to the URI.
         name : str
             An optional, arbitrary label.
-        log : Logger or None
-            An optional Logger instance
-        reuse_port : bool
-            Tells the kernel to allow this endpoint to be bound to the same port as other existing endpoints are bound
-            to, so long as they all set this flag when being created. This option is not supported on Windows.
         kwargs
             Optional parameters to pass to create_datagram_endpoint for UDP or create_server for
             TCP/IP.
@@ -540,8 +535,7 @@ class EchoProtocol(base.Communicator):
             _, protocol = await loop.create_datagram_endpoint(Protocol, local_addr=_address2tuple(server_uri), **kwargs)
         else:
             protocol = EchoProtocol(server_uri, 'server', name=name, logger=log)
-            protocol.Server = await loop.create_server(lambda: protocol, *_address2tuple(server_uri),
-                                                       reuse_port=reuse_port, **kwargs)
+            protocol.Server = await loop.create_server(lambda: protocol, *_address2tuple(server_uri), **kwargs)
 
         protocol.logger.info(f'Listening on {protocol.server_uri}')
         return protocol
