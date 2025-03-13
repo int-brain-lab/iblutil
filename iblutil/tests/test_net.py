@@ -363,12 +363,10 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
 
 class TestWebSockets(unittest.IsolatedAsyncioTestCase):
     """Test net.app.EchoProtocol with a TCP/IP transport layer"""
-    port = 8888
 
     async def asyncSetUp(self):
-        self.server = await app.EchoProtocol.server(f'ws://localhost:{self.port}', name='server')
-        self.client = await app.EchoProtocol.client(f'ws://localhost:{self.port}', name='client')
-        TestWebSockets.port += 1
+        self.server = await app.EchoProtocol.server('ws://localhost:8888', name='server')
+        self.client = await app.EchoProtocol.client('ws://localhost:8888', name='client')
 
     async def test_start(self):
         """Tests confirmed send via start command."""
