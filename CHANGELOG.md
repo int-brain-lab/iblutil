@@ -8,7 +8,6 @@
 
 ### Modified
 - upgrade minimum supported Python version to 3.10
-- io.params.read returns the json file name if a decoding error occurs
 
 ## [1.16.0]
 
