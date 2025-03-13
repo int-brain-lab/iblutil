@@ -3,7 +3,13 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.16.0]
+
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.17.0]
+
+### Modified
+- upgrade minimum supported Python version to 3.10
+
+## [1.16.0]
 
 ### Added
 
