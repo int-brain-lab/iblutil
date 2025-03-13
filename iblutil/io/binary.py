@@ -1,7 +1,7 @@
 from io import IOBase
 from os import PathLike
 from pathlib import Path
-from typing import Union, BinaryIO
+from typing import BinaryIO
 
 import numpy as np
 import numpy.typing as npt
@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def load_as_dataframe(
-    filepath_bin: Union[PathLike, str],
+    filepath_bin: PathLike | str,
     dtype: np.dtype,
     count: int = -1,
     offset: int = 0,
@@ -48,20 +48,14 @@ def load_as_dataframe(
         raise FileNotFoundError(filepath_bin)
     if filepath_bin.is_dir():
         raise IsADirectoryError(filepath_bin)
-    if (
-        not isinstance(dtype, np.dtype)
-        or not hasattr(dtype, "fields")
-        or dtype.fields is None
-    ):
-        raise ValueError("dtype must be a NumPy structured datatype")
-    structured_array = np.fromfile(
-        file=filepath_bin, dtype=dtype, count=count, offset=offset
-    )
+    if not isinstance(dtype, np.dtype) or not hasattr(dtype, 'fields') or dtype.fields is None:
+        raise ValueError('dtype must be a NumPy structured datatype')
+    structured_array = np.fromfile(file=filepath_bin, dtype=dtype, count=count, offset=offset)
     return pd.DataFrame(structured_array)
 
 
 def convert_to_parquet(
-    filepath_bin: Union[PathLike, str],
+    filepath_bin: PathLike | str,
     dtype: np.dtype,
     delete_bin_file: bool = False,
 ) -> Path:
@@ -97,7 +91,7 @@ def convert_to_parquet(
     """
     dataframe = load_as_dataframe(filepath_bin=filepath_bin, dtype=dtype)
     filepath_bin = Path(filepath_bin)
-    filepath_pqt = filepath_bin.with_suffix(".pqt")
+    filepath_pqt = filepath_bin.with_suffix('.pqt')
     if filepath_pqt.exists():
         raise FileExistsError(filepath_pqt)
     dataframe.to_parquet(filepath_pqt)
@@ -106,9 +100,7 @@ def convert_to_parquet(
     return filepath_pqt
 
 
-def write_array(
-    fid: Union[BinaryIO, str, PathLike], array: npt.ArrayLike, dtype: np.dtype
-):
+def write_array(fid: BinaryIO | str | PathLike, array: npt.ArrayLike, dtype: np.dtype):
     """
     Write a structured NumPy array to a binary file.
 
@@ -134,20 +126,14 @@ def write_array(
     TypeError
         If `fid` is not a stream and cannot be converted to a Path.
     """
-    if (
-        not isinstance(dtype, np.dtype)
-        or not hasattr(dtype, "fields")
-        or dtype.fields is None
-    ):
+    if not isinstance(dtype, np.dtype) or not hasattr(dtype, 'fields') or dtype.fields is None:
         raise ValueError("'dtype' must be a structured NumPy datatype")
     array = np.array(array)
     if array.ndim > 2:
-        raise ValueError("The array must have a maximum of two dimensions.")
+        raise ValueError('The array must have a maximum of two dimensions.')
     if array.shape[-1] != len(dtype.fields):
-        raise ValueError(
-            "The array's last dimension must match the number of fields in 'dtype'."
-        )
-    if not isinstance(fid, IOBase) and Path(fid).exists():
+        raise ValueError("The array's last dimension must match the number of fields in 'dtype'.")
+    if not isinstance(fid, IOBase) and Path(fid).exists():  # type: ignore
         raise FileExistsError(fid)
     structured_data = np.rec.fromrecords(array).astype(dtype)
     structured_data.tofile(fid)
