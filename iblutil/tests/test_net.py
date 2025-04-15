@@ -108,10 +108,12 @@ class TestBase(unittest.IsolatedAsyncioTestCase):
 
 @unittest.skipIf(ver < Version('3.9'), 'only version 3.9 or later supported')
 class TestUDP(unittest.IsolatedAsyncioTestCase):
+    port = 51865
 
     async def asyncSetUp(self):
-        self.server = await app.EchoProtocol.server('localhost', name='server')
-        self.client = await app.EchoProtocol.client('localhost', name='client')
+        self.server = await app.EchoProtocol.server(f'localhost:{self.port}', name='server')
+        self.client = await app.EchoProtocol.client(f'localhost:{self.port}', name='client')
+        TestUDP.port += 1
 
     async def test_start(self):
         """Tests confirmed send via start command."""
