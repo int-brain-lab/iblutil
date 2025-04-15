@@ -108,10 +108,12 @@ class TestBase(unittest.IsolatedAsyncioTestCase):
 
 @unittest.skipIf(ver < Version('3.9'), 'only version 3.9 or later supported')
 class TestUDP(unittest.IsolatedAsyncioTestCase):
+    port = 51865
 
     async def asyncSetUp(self):
-        self.server = await app.EchoProtocol.server('localhost', name='server')
-        self.client = await app.EchoProtocol.client('localhost', name='client')
+        self.server = await app.EchoProtocol.server(f'localhost:{self.port}', name='server')
+        self.client = await app.EchoProtocol.client(f'localhost:{self.port}', name='client')
+        TestUDP.port += 1
 
     async def test_start(self):
         """Tests confirmed send via start command."""
@@ -307,6 +309,23 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
                 mock.patch.object(self.client, '_receive') as receive_mock:
             self.client.datagram_received(b'foo', ('192.168.0.0', self.server.port))
             receive_mock.assert_not_called()
+        # Additionally we test the behaviour when no callbacks are assigned
+        del self.client._last_sent[addr]
+        with self.assertLogs(self.client.name, logging.DEBUG) as log:
+            self.client._receive(b'[16,"foo"]', addr)
+            self.assertIn('No callbacks to execute', log.records[-1].message)
+
+    def test_receive_truncated(self):
+        """Test behaviour when truncated echo message received."""
+        self.client.max_message_size = 5
+        fut = mock.MagicMock()
+        msg, addr = b'[16,"foo"]', (self.server.hostname, self.server.port)
+        self.client._last_sent[addr] = (msg, fut)
+        with self.assertNoLogs(self.client.name, logging.WARNING) as log:
+            self.client._receive(msg, addr)
+        with self.assertLogs(self.client.name, logging.WARNING) as log:
+            self.client._receive(msg[:5], addr)
+            self.assertIn('Received truncated echo', log.records[-1].message)
 
     def test_connection_made_validation(self):
         """Test for connection_made method"""

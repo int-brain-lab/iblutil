@@ -16,7 +16,6 @@ Examples
 import sys
 import json
 import urllib.parse
-import urllib.request
 import asyncio
 import argparse
 import socket
@@ -94,6 +93,8 @@ class EchoProtocol(base.Communicator):
     Server = None
     _role = None
     default_echo_timeout = 1.
+    max_message_size = 65535
+    """int: Maximum message size expected.  Defaults to maximum theoretical message size for UDP."""
 
     def __init__(self, server_uri, role, name=None, logger=None):
         super().__init__(server_uri, name=name, logger=logger)
@@ -456,7 +457,12 @@ class EchoProtocol(base.Communicator):
         if (last_sent := self._last_sent.get(addr)) and not base.is_success(last_sent[1]):
             expected, echo_future = last_sent
             # If echo doesn't match, raise exception
-            if data != expected:
+            matches = data == expected
+            if not matches and len(data) == self.max_message_size and data == expected[:self.max_message_size]:
+                self.logger.warning('Received truncated echo from %s://%s:%i; original message > %i bytes',
+                                    self.protocol, host, port, self.max_message_size)
+                matches = True
+            if not matches:
                 self.logger.error('Expected %s from %s, got %s', expected, self.name, data)
                 echo_future.set_exception(RuntimeError)
             elif not echo_future.cancelled():  # Notify callbacks of receipt
@@ -797,7 +803,7 @@ class Services(base.Service, UserDict):
             Remote host failed to echo the message within the timeout period.
             Remote host failed to respond within response period.
         """
-        event = base.ExpMessage.EXPEND
+        event = base.ExpMessage.EXPEND if not immediately else base.ExpMessage.EXPINTERRUPT
         return await self._signal(event, 'stop', data=data, immediately=immediately, reverse=True, **kwargs)
 
     async def status(self, status, **kwargs):

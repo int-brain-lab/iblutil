@@ -4,9 +4,17 @@
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.17.0]
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.0]
 
 ### Modified
+
+- handle truncated UDP echoes
+- bugfix: incorrect message enum used in Services.stop
+
+## [1.17.0]
+
+### Modified
+
 - upgrade minimum supported Python version to 3.10
 
 ## [1.16.0]
@@ -96,7 +104,7 @@
 
 ##  [1.7.3]
 
-- setup_logger: simpler layout  
+- setup_logger: simpler layout
 - setup_logger: check class of log.handler instance before accessing class-specific field
 
 ##  [1.7.2]

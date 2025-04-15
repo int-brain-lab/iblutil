@@ -617,6 +617,9 @@ class Communicator(Service):
                 err, evt = data
                 self.logger.error('Callback for %s on %s://%s:%i failed with %s',
                                   ExpMessage(evt).name, self.protocol, *addr, err)
+            if event not in self._callbacks or not self._callbacks[event]:
+                self.logger.debug('No callbacks to execute for event %s', event.name)
+                return
             for f, return_event in self._callbacks[event].copy():
                 if isfuture(f):
                     if f.done():
