@@ -25,7 +25,8 @@ readme = {file = ["README.md"], content-type = "text/markdown"}
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
-include = ["iblutil"]
+include = ["iblutil*"]
+exclude = ["iblutil.tests*"]
 
 [tool.ruff]
 line-length = 99
