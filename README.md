@@ -12,5 +12,13 @@ pip install iblutil
 
 
 ## Contribution guide
+
+Install the `requirements-dev.txt` dependencies.
+
+Release checklist:
 - Python tests pass ./iblutil/tests
-- Linting passes `ruff check`
+- `ruff check` passes
+- update `CHANGELOG.md`
+- update version number in `./iblutil/__init__.py`
+- PR to main
+- release on github.com will trigger upload to pypi
