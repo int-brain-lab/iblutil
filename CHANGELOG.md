@@ -6,8 +6,13 @@
 
 ## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.0]
 
+### Added
+
+- ruff
+
 ### Modified
 
+- project moved to `pyproject.toml`
 - handle truncated UDP echoes
 - bugfix: incorrect message enum used in Services.stop
 

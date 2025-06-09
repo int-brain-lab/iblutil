@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iblutil"
+dynamic = ["version", "readme", "dependencies"]
+description = "Utillity functions and classes for IBL data analysis with minimal dependencies"
+authors = [
+    {name = "IBL Staff"},
+]
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[project.urls]
+Homepage = "https://github.com/int-brain-lab/iblutil"
+Documentation = "https://github.com/int-brain-lab/iblutil"
+Repository = "https://github.com/int-brain-lab/iblutil"
+Issues = "https://github.com/int-brain-lab/iblutil/issues"
+Changelog = "https://github.com/int-brain-lab/iblutil/blob/main/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = {attr = "iblutil.__version__"}
+readme = {file = ["README.md"], content-type = "text/markdown"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["iblutil"]
+
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "W"]
+ignore = ["E266", "D401", "D105", "D107", "D102", "D417", "D101", "D404", "D100", "D301", "D103", "D403"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

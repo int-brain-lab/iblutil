@@ -26,10 +26,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Flake8
+    - name: Ruff
       run: |
-        pip install flake8
-        python -m flake8
+        pip install ruff
+        ruff check
 
     - name: Install deps
       run: |
