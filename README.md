@@ -21,4 +21,4 @@ Release checklist:
 - update `CHANGELOG.md`
 - update version number in `./iblutil/__init__.py`
 - PR to main
-- release on github.com will trigger upload to pypi
+- release on github.com with tag `X.X.X`. This will trigger an upload to pypi

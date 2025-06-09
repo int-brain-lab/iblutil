@@ -3,9 +3,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ONE-api"
+name = "iblutil"
 dynamic = ["version", "readme", "dependencies"]
-description = "Open Neurophysiology Environment"
+description = "Utillity functions and classes for IBL data analysis with minimal dependencies"
 authors = [
     {name = "IBL Staff"},
 ]
