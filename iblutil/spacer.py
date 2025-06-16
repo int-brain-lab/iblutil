@@ -19,7 +19,6 @@ Example
 """
 
 import numpy as np
-from scipy.stats import linregress
 
 class Spacer:
     def __init__(self, dt_start=.02, dt_end=.4, n_pulses=8, tup=.05):
