@@ -199,7 +199,7 @@ class Spacer:
             tspacer[i] = (ispacer[imax] - template.size + 1) / fs
         return tspacer
 
-    def find_spacers_from_timestamps(self, timestamps:np.ndarray, atol:np.float64 = 1e-3) -> np.ndarray:
+    def find_spacers_from_timestamps(self, timestamps:np.ndarray, atol:np.float64 = 1e-4) -> np.ndarray:
         """
         finds spacers in a series of timestamps. Returns the indices of the first spacer front
 
@@ -221,7 +221,7 @@ class Spacer:
         for i in range(timestamps.shape[0] - self.n_pulses*2):
             tcheck = timestamps[i:i+self.n_pulses*2]
             tcheck = tcheck - tcheck[0] + self.times[0]
-            res.append(linregress(tcheck[:-1], self.times)[0])
+            res.append(linregress(tcheck[:-1], self.times)[2]**2) # r-squared
         res = np.array(res)
 
         return np.where(np.isclose(res, 1, atol=atol))[0]
