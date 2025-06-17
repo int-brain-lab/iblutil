@@ -3,6 +3,12 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
+## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.0] [YANKED]
+
+### Added
+
+- iblutil.random.sillyname: a module to create a 3 words (preferably silly) name with a collision probability of 1/80M. No expletives.
+
 ## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.1]
 
 ### Fixed
