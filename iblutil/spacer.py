@@ -198,7 +198,7 @@ class Spacer:
             tspacer[i] = (ispacer[imax] - template.size + 1) / fs
         return tspacer
 
-    def find_spacers_from_timestamps(self, timestamps:np.ndarray, atol:np.float64 = 1e-10) -> np.ndarray:
+    def find_spacers_from_timestamps(self, timestamps:np.ndarray, atol:np.float64 = 1e-4) -> np.ndarray:
         """
         finds spacers in a series of timestamps. Returns the indices of the first spacer front
 
@@ -207,7 +207,7 @@ class Spacer:
         timestamps : np.ndarray
             an array of the timestamps to check
         atol : np.float64, optional
-            absolute tolerance for the slope in a linear regression, passed to np.isclose, by default 1e-3
+            absolute tolerance for the squared sum of the residuals
 
         Returns
         -------
