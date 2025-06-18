@@ -19,7 +19,7 @@ Example
 """
 
 import numpy as np
-
+from scipy import signal
 
 class Spacer:
     def __init__(self, dt_start=.02, dt_end=.4, n_pulses=8, tup=.05):
@@ -198,3 +198,75 @@ class Spacer:
             imax = np.argmax(xcor[ispacer])
             tspacer[i] = (ispacer[imax] - template.size + 1) / fs
         return tspacer
+
+    def find_spacers_from_timestamps(self, timestamps:np.ndarray, atol:np.float64 = 1e-4) -> np.ndarray:
+        """
+        finds spacers in a series of timestamps. Returns the indices of the first spacer front
+
+        Parameters
+        ----------
+        timestamps : np.ndarray
+            an array of the timestamps to check
+        atol : np.float64, optional
+            absolute tolerance for the squared sum of the residuals
+
+        Returns
+        -------
+        np.ndarray
+            an array of the indices of the first front of a spacer
+        """
+
+
+        res = []
+        for i in range(timestamps.shape[0] - self.n_pulses*2):
+            tcheck = timestamps[i:i+self.n_pulses*2]
+            tcheck = tcheck - tcheck[0] + self.times[0]
+            res.append(np.sum((tcheck[:-1] - self.times)**2)) # squared sum of resituals
+        res = np.array(res)
+
+        return np.where(np.isclose(res, 0, atol=atol))[0]
+
+    def find_spacers_from_positive_fronts(self, timestamps, fs=1000, prominence=4):
+        """
+        finds spacers in timestamps that consist of only the positive fronts.
+
+        Parameters
+        ----------
+        timestamps : np.ndarray
+            the positive fronts
+        fs : int, optional
+            sampling frequency used for resampling, by default 1000
+        prominence : int, optional
+            prominence for peak detection after convolution, passed to signal.find_peaks, by default 4
+        """
+        
+        def digitize(tstamps, fs):
+            # local helper to create a boolean vector from timestamped data sampled at fs
+            t = np.arange(tstamps[0], tstamps[-1], 1/fs)
+            y = np.zeros_like(t)
+            y[np.digitize(tstamps,t)-1] = 1
+            return y, t
+
+        y, t = digitize(timestamps, fs)
+        y_spacer, _ = digitize(self.times, fs)
+        # convolve to find spacers
+        y_c = np.convolve(y, y_spacer, mode='same')
+        peak_inds, _ = signal.find_peaks(y_c, prominence=prominence)
+        # adjust start time by spacer width
+        w = (self.times[-1] - self.times[0])/2
+        spacer_times_ = t[peak_inds] - w - self.times[0]
+        # convert spacer onset times to to index into timestamps
+        # spacer_ix = np.array([np.argmin((timestamps - t_s)**2) for t_s in spacer_times])
+        spacer_ix = []
+        spacer_times = []
+        for spacer_time in np.sort(spacer_times_):
+            dt = (timestamps - spacer_time)**2
+            if np.min(dt) > 1/fs: # when first timestamp of spacer is missing
+                spacer_ix.append(np.nan) # the returned index is nan
+                spacer_times.append(spacer_time) # the returned time is the inferred time
+            else:
+                ix = np.argmin(dt) 
+                spacer_ix.append(ix) # otherwise the returned index is the index of the fist spacer front
+                spacer_times.append(timestamps[ix]) # and it's corresponding timestamp
+
+        return np.array(spacer_ix), np.array(spacer_times)
