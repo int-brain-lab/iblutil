@@ -3,19 +3,21 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.0] [YANKED]
+##  [1.19.0]
 
 ### Added
 
 - iblutil.random.sillyname: a module to create a 3 words (preferably silly) name with a collision probability of 1/80M. No expletives.
+- iblutil.spacers.find_spacers_from_positive_fronts: utility function to detect spacers from a numpy array of timestamps containing only upgoing fronts
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.1]
+
+## [1.18.1]
 
 ### Fixed
 
 - build includes submodules but excludes tests.
 
-## [Latest](https://github.com/int-brain-lab/iblutil/commits/main) [1.18.0] [YANKED]
+##  [1.18.0] [YANKED]
 
 ### Added
 
