@@ -48,6 +48,27 @@ class TestSpacer(unittest.TestCase):
         # check if spacers are retrieved
         np.testing.assert_equal(spacer.find_spacers_from_timestamps(timestamps), true_spacer_ix)
 
+    def test_find_spacer_from_positive_timestamps(self):
+        spacer = Spacer()
+        timestamps = np.random.random(size=100) * 100 # random times
+        start_times = np.sort(np.random.random(size=2) * 100) # 2 spacers
+        # make sure there is space for spacer injection
+        ix = np.ones(timestamps.shape[0],dtype='bool')
+        for start_time in start_times:
+            ix[np.logical_and(timestamps > start_time, timestamps < start_time + spacer.times[-1]+1)] = False
+        timestamps = timestamps[ix]
+        # inject broken spacers (one random timestamp missing)
+        for start_time in start_times:
+            spacer_times = spacer.times
+            ix = np.random.randint(0, spacer_times.shape[0])
+            # Remove the value at the random index
+            spacer_times = np.delete(spacer_times, ix)
+            timestamps = np.concatenate([timestamps, spacer_times + start_time])
+        timestamps = np.sort(timestamps)
+        # true_spacer_ix = np.sort([np.where(timestamps == start_time+spacer.times[0])[0][0] for start_time in start_times])
+        spacer_ix, spacer_times = spacer.find_spacers_from_positive_fronts(timestamps, fs=2000)
+        np.testing.assert_allclose(spacer_times, start_times, atol=1e-3)
+
 
 class TestSpacersFromFronts(unittest.TestCase):
     """Tests for Spacer.find_spacers_from_fronts"""
