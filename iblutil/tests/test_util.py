@@ -12,7 +12,6 @@ from iblutil import util
 
 
 class TestBunch(unittest.TestCase):
-
     def test_copy(self):
         """Test Bunch.copy method."""
         # Expect shallow copy by default
@@ -56,7 +55,6 @@ class TestBunch(unittest.TestCase):
 
 
 class TestFlatten(unittest.TestCase):
-
     def test_flatten(self):
         x = (1, 2, 3, [1, 2], 'string', 0.1, {1: None}, [[1, 2, 3], {1: 1}, 1])
         self.assertEqual(util._iflatten(x), util.flatten(x))
@@ -66,7 +64,6 @@ class TestFlatten(unittest.TestCase):
 
 
 class TestRangeStr(unittest.TestCase):
-
     def test_range_str(self):
         x = [1, 2, 3, 4, 5, 6, 7, 8, 12, 17]
         self.assertEqual(util.range_str(x), '1-8, 12 & 17')
@@ -143,7 +140,6 @@ class TestLogger(unittest.TestCase):
 
 
 class TestRrmdir(unittest.TestCase):
-
     def test_rrmdir(self):
         with self.assertRaises(FileNotFoundError):
             util.rrmdir(Path('/fantasy/path'))
@@ -183,7 +179,6 @@ class TestRrmdir(unittest.TestCase):
 
 
 class TestDirSize(unittest.TestCase):
-
     def test_dir_size(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             dir1 = Path(temp_dir)
@@ -205,7 +200,6 @@ class TestDirSize(unittest.TestCase):
 
 
 class TestGetMac(unittest.TestCase):
-
     def test_get_mac(self):
         with patch('iblutil.util.uuid.getnode', return_value=205452675710958):
             self.assertEqual(util.get_mac(), 'BA-DB-AD-C0-FF-EE')

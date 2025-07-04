@@ -7,13 +7,12 @@ import pandas as pd
 
 
 class HashUUIDs(unittest.TestCase):
-
     def test_hash_uuids(self):
         the_hash = 'fc898a58172960bcc2d49577e17d34e0e59ded74567ee236533c0757f016262f'
         uuids = [
             'c5cabbda-1f74-4168-ad5e-7c5a2f533d9f',
             '5b5176f2-228f-46b5-85c8-205cf9d90a53',
-            '19930b44-2f8a-44e1-a8ce-46184f7334cb'
+            '19930b44-2f8a-44e1-a8ce-46184f7334cb',
         ]
         self.assertEqual(the_hash, num.hash_uuids(uuids))
         self.assertEqual(the_hash, num.hash_uuids(np.array(uuids)))
@@ -38,9 +37,7 @@ class TestBetweeenSorted(unittest.TestCase):
         t = np.arange(100)
         bounds = [10, 25]
         ind = num.between_sorted(t, bounds)
-        assert np.all(
-            t[ind] == np.arange(int(np.ceil(bounds[0])), int(np.floor(bounds[1] + 1)))
-        )
+        assert np.all(t[ind] == np.arange(int(np.ceil(bounds[0])), int(np.floor(bounds[1] + 1))))
         # test single time in between edges
         bounds = [10.4, 25.2]
         ind = num.between_sorted(t, bounds)
@@ -53,31 +50,23 @@ class TestBetweeenSorted(unittest.TestCase):
         t = np.arange(100)
         # non overlapping ranges
         bounds = np.array([[10.4, 25.2], [67.2, 86.4]])
-        ind_ = np.logical_or(
-            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
-        )
+        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
         ind = num.between_sorted(t, bounds)
         assert np.all(ind == ind_)
         # overlapping ranges
         bounds = np.array([[10.4, 83.2], [67.2, 86.4]])
-        ind_ = np.logical_or(
-            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
-        )
+        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
         ind = num.between_sorted(t, bounds)
         assert np.all(ind == ind_)
         # one range contains the other
         bounds = np.array([[10.4, 83.2], [34, 78]])
-        ind_ = np.logical_or(
-            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
-        )
+        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
         ind = num.between_sorted(t, bounds)
         assert np.all(ind == ind_)
         # case when one range starts exactly where another stops
         bounds = np.array([[10.4, 83.2], [83.2, 84]])
         ind = num.between_sorted(t, bounds)
-        ind_ = np.logical_or(
-            num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1])
-        )
+        ind_ = np.logical_or(num.between_sorted(t, bounds[0]), num.between_sorted(t, bounds[1]))
         assert np.all(ind == ind_)
 
     def test_between_sorted_out_of_range(self):
@@ -155,18 +144,12 @@ class TestWithinRanges(unittest.TestCase):
 
         # Matrix mode
         ranges = np.array([[1, 2], [5, 8]])
-        verifiable = num.within_ranges(
-            np.arange(10) + 1, ranges, labels=np.array([0, 1]), mode="matrix"
-        )
-        expected = np.array(
-            [[1, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1, 0, 0]], dtype=int
-        )
+        verifiable = num.within_ranges(np.arange(10) + 1, ranges, labels=np.array([0, 1]), mode='matrix')
+        expected = np.array([[1, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 1, 1, 1, 0, 0]], dtype=int)
         np.testing.assert_array_equal(verifiable, expected)
 
         # Test overlap
-        verifiable = num.within_ranges(
-            np.arange(11), [(1, 2), (5, 8), (4, 6)], labels=[0, 1, 1], mode="matrix"
-        )
+        verifiable = num.within_ranges(np.arange(11), [(1, 2), (5, 8), (4, 6)], labels=[0, 1, 1], mode='matrix')
         expected = np.array(
             [[0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 2, 2, 1, 1, 0, 0]],
             dtype=int,
@@ -174,19 +157,13 @@ class TestWithinRanges(unittest.TestCase):
         np.testing.assert_array_equal(verifiable, expected)
 
         # Vector mode
-        verifiable = num.within_ranges(
-            np.arange(10) + 1, ranges, np.array([3, 1]), mode="vector"
-        )
+        verifiable = num.within_ranges(np.arange(10) + 1, ranges, np.array([3, 1]), mode='vector')
         expected = np.array([3, 3, 0, 0, 1, 1, 1, 1, 0, 0], dtype=int)
         np.testing.assert_array_equal(verifiable, expected)
 
         # Boolean
-        verifiable = num.within_ranges(
-            np.arange(11), [(1, 2), (5, 8), (4, 6)], dtype=bool
-        )
-        expected = np.array(
-            [False, True, True, False, True, True, True, True, True, False, False]
-        )
+        verifiable = num.within_ranges(np.arange(11), [(1, 2), (5, 8), (4, 6)], dtype=bool)
+        expected = np.array([False, True, True, False, True, True, True, True, True, False, False])
         np.testing.assert_array_equal(verifiable, expected)
 
         # Edge cases
@@ -195,7 +172,7 @@ class TestWithinRanges(unittest.TestCase):
         np.testing.assert_array_equal(verifiable, expected)
 
         with self.assertRaises(ValueError):
-            num.within_ranges(np.arange(11), [(1, 2)], mode="array")
+            num.within_ranges(np.arange(11), [(1, 2)], mode='array')
 
 
 class TestBincount2D(unittest.TestCase):
@@ -227,13 +204,9 @@ class TestBincount2D(unittest.TestCase):
         x = np.array([0, 1, 1, 2, 2, 4, 4, 4])
         y = np.array([4, 2, 2, 1, 1, 0, 0, 0])
         r, xscale, yscale = num.bincount2D(x, y)
-        self.assertTrue(
-            np.all(xscale == yscale) and np.all(xscale == np.array([0, 1, 2, 4]))
-        )
+        self.assertTrue(np.all(xscale == yscale) and np.all(xscale == np.array([0, 1, 2, 4])))
         # test aggregation on a fixed scale
-        r, xscale, yscale = num.bincount2D(
-            x + 10, y + 10, xbin=np.arange(5) + 10, ybin=np.arange(3) + 10
-        )
+        r, xscale, yscale = num.bincount2D(x + 10, y + 10, xbin=np.arange(5) + 10, ybin=np.arange(3) + 10)
         self.assertTrue(np.all(xscale == np.arange(5) + 10))
         self.assertTrue(np.all(yscale == np.arange(3) + 10))
         self.assertTrue(np.all(r.shape == (3, 5)))

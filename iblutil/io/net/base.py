@@ -119,7 +119,7 @@ def validate_uri(uri, resolve_host=True, default_port=LISTEN_PORT, default_proc=
 
     if isinstance(uri, str) and (proc := re.match(r'(?P<proc>^[a-zA-Z]+(?=://))', uri)):
         proc = proc.group()
-        uri = uri[len(proc) + 3:]
+        uri = uri[len(proc) + 3 :]
     else:
         proc = default_proc
     # Validate hostname
@@ -221,11 +221,9 @@ class ExpMessage(IntFlag):
                 else:
                     raise TypeError(f'Unknown event type {type(event)}')
             except KeyError:
-                raise ValueError(f'Unrecognized event "{event}". '
-                                 f'Choices: {tuple(ExpMessage.__members__.keys())}')
+                raise ValueError(f'Unrecognized event "{event}". Choices: {tuple(ExpMessage.__members__.keys())}')
         if not allow_bitwise and event not in list(ExpMessage):
-            raise ValueError('Compound (bitwise) events not permitted. '
-                             f'Choices: {tuple(ExpMessage)}')
+            raise ValueError(f'Compound (bitwise) events not permitted. Choices: {tuple(ExpMessage)}')
         return event
 
     def __iter__(self):  # py3.11 remove this method
@@ -256,6 +254,7 @@ class ExpStatus(IntEnum):
 
 class Service(ABC):
     """An abstract base class for auxiliary experiment services."""
+
     __version__ = PROTOCOL_VERSION
     __slots__ = 'name'
 
@@ -446,6 +445,7 @@ class Communicator(Service):
     server_uri : str
         The full URI of the remote device, e.g. udp://192.168.0.1:1001
     """
+
     __slots__ = ('server_uri', '_callbacks', 'logger', 'name')
 
     def __init__(self, server_uri, name=None, logger=None):
@@ -615,8 +615,7 @@ class Communicator(Service):
             if event is ExpMessage(0):
                 # An error in the remote callback function occurred
                 err, evt = data
-                self.logger.error('Callback for %s on %s://%s:%i failed with %s',
-                                  ExpMessage(evt).name, self.protocol, *addr, err)
+                self.logger.error('Callback for %s on %s://%s:%i failed with %s', ExpMessage(evt).name, self.protocol, *addr, err)
             if event not in self._callbacks or not self._callbacks[event]:
                 self.logger.debug('No callbacks to execute for event %s', event.name)
                 return

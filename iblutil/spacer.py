@@ -21,8 +21,9 @@ Example
 import numpy as np
 from scipy import signal
 
+
 class Spacer:
-    def __init__(self, dt_start=.02, dt_end=.4, n_pulses=8, tup=.05):
+    def __init__(self, dt_start=0.02, dt_end=0.4, n_pulses=8, tup=0.05):
         """Computes spacer up times using a chirp up and down pattern.
 
         Parameters
@@ -80,7 +81,9 @@ class Spacer:
         """
         t = self.times
         ns = int((t[-1] + self.tup * 10) * fs)
-        sig = np.zeros(ns, )
+        sig = np.zeros(
+            ns,
+        )
         sig[(t * fs).astype(np.int32)] = 1
         sig[((t + self.tup) * fs).astype(np.int32)] = -1
         sig = np.cumsum(sig)
@@ -142,13 +145,13 @@ class Spacer:
         n_pulses = (self.n_pulses * 2) - 1
         is_pulse = np.isclose(np.diff(fronts['times']), self.tup, rtol=1e-2)
         is_pulse = np.insert(is_pulse, 0, False)
-        ind, = np.where(is_pulse)
+        (ind,) = np.where(is_pulse)
 
         # Find consecutive pulses that are the correct length close together
-        max_d = 1.  # look for fronts less than 1 second apart
+        max_d = 1.0  # look for fronts less than 1 second apart
         consecutive = np.logical_and(np.diff(ind) == 2, np.diff(fronts['times'][ind]) < max_d)
         consecutive = np.pad(consecutive, 1, 'constant', constant_values=False)
-        edges, = np.where(~consecutive)
+        (edges,) = np.where(~consecutive)
         spacer_times = []
         for i in np.arange(edges.size - 1):
             if edges[i + 1] - edges[i] == n_pulses:  # This could be relaxed to allow for noise
@@ -161,7 +164,7 @@ class Spacer:
                 signal[ii[ii < len(signal)]] = fronts['polarities'][idx[ii < len(signal)]]
                 signal = np.cumsum(signal) + 1  # {-1, 0} -> {0, 1}
                 try:
-                    spacer, = self.find_spacers(signal, fs=fs)
+                    (spacer,) = self.find_spacers(signal, fs=fs)
                     spacer_times.append(spacer + t[0])
                 except IndexError:
                     continue
@@ -199,7 +202,7 @@ class Spacer:
             tspacer[i] = (ispacer[imax] - template.size + 1) / fs
         return tspacer
 
-    def find_spacers_from_timestamps(self, timestamps:np.ndarray, atol:np.float64 = 1e-4) -> np.ndarray:
+    def find_spacers_from_timestamps(self, timestamps: np.ndarray, atol: np.float64 = 1e-4) -> np.ndarray:
         """
         finds spacers in a series of timestamps. Returns the indices of the first spacer front
 
@@ -216,12 +219,11 @@ class Spacer:
             an array of the indices of the first front of a spacer
         """
 
-
         res = []
-        for i in range(timestamps.shape[0] - self.n_pulses*2):
-            tcheck = timestamps[i:i+self.n_pulses*2]
+        for i in range(timestamps.shape[0] - self.n_pulses * 2):
+            tcheck = timestamps[i : i + self.n_pulses * 2]
             tcheck = tcheck - tcheck[0] + self.times[0]
-            res.append(np.sum((tcheck[:-1] - self.times)**2)) # squared sum of resituals
+            res.append(np.sum((tcheck[:-1] - self.times) ** 2))  # squared sum of resituals
         res = np.array(res)
 
         return np.where(np.isclose(res, 0, atol=atol))[0]
@@ -239,12 +241,12 @@ class Spacer:
         prominence : int, optional
             prominence for peak detection after convolution, passed to signal.find_peaks, by default 4
         """
-        
+
         def digitize(tstamps, fs):
             # local helper to create a boolean vector from timestamped data sampled at fs
-            t = np.arange(tstamps[0], tstamps[-1], 1/fs)
+            t = np.arange(tstamps[0], tstamps[-1], 1 / fs)
             y = np.zeros_like(t)
-            y[np.digitize(tstamps,t)-1] = 1
+            y[np.digitize(tstamps, t) - 1] = 1
             return y, t
 
         y, t = digitize(timestamps, fs)
@@ -253,20 +255,20 @@ class Spacer:
         y_c = np.convolve(y, y_spacer, mode='same')
         peak_inds, _ = signal.find_peaks(y_c, prominence=prominence)
         # adjust start time by spacer width
-        w = (self.times[-1] - self.times[0])/2
+        w = (self.times[-1] - self.times[0]) / 2
         spacer_times_ = t[peak_inds] - w - self.times[0]
         # convert spacer onset times to to index into timestamps
         # spacer_ix = np.array([np.argmin((timestamps - t_s)**2) for t_s in spacer_times])
         spacer_ix = []
         spacer_times = []
         for spacer_time in np.sort(spacer_times_):
-            dt = (timestamps - spacer_time)**2
-            if np.min(dt) > 1/fs: # when first timestamp of spacer is missing
-                spacer_ix.append(np.nan) # the returned index is nan
-                spacer_times.append(spacer_time) # the returned time is the inferred time
+            dt = (timestamps - spacer_time) ** 2
+            if np.min(dt) > 1 / fs:  # when first timestamp of spacer is missing
+                spacer_ix.append(np.nan)  # the returned index is nan
+                spacer_times.append(spacer_time)  # the returned time is the inferred time
             else:
-                ix = np.argmin(dt) 
-                spacer_ix.append(ix) # otherwise the returned index is the index of the fist spacer front
-                spacer_times.append(timestamps[ix]) # and it's corresponding timestamp
+                ix = np.argmin(dt)
+                spacer_ix.append(ix)  # otherwise the returned index is the index of the fist spacer front
+                spacer_times.append(timestamps[ix])  # and it's corresponding timestamp
 
         return np.array(spacer_ix), np.array(spacer_times)

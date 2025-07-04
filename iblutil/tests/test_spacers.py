@@ -5,57 +5,56 @@ from iblutil.spacer import Spacer
 
 
 class TestSpacer(unittest.TestCase):
-
     def test_spacer(self):
-        spacer = Spacer(dt_start=.02, dt_end=.4, n_pulses=8, tup=.05)
+        spacer = Spacer(dt_start=0.02, dt_end=0.4, n_pulses=8, tup=0.05)
         np.testing.assert_equal(spacer.times.size, 15)
         sig = spacer.generate_template(fs=1000)
         ac = np.correlate(sig, sig, 'full') / np.sum(sig**2)
         # import matplotlib.pyplot as plt
         # plt.plot(ac)
         # plt.show()
-        ac[sig.size - 100: sig.size + 100] = 0  # remove the main peak
+        ac[sig.size - 100 : sig.size + 100] = 0  # remove the main peak
         # the autocorrelation side lobes should be less than 30%
-        assert np.max(ac) < .3
+        assert np.max(ac) < 0.3
 
     def test_find_spacers(self):
         """Generates a fake signal with 2 spacers and finds them"""
         fs = 1000
-        spacer = Spacer(dt_start=.02, dt_end=.4, n_pulses=8, tup=.05)
+        spacer = Spacer(dt_start=0.02, dt_end=0.4, n_pulses=8, tup=0.05)
         start_times = [4.38, 96.58]
         template = spacer.generate_template(fs)
         signal = np.zeros(int(start_times[-1] * fs + template.size * 2))
         for start_time in start_times:
-            signal[int(start_time * fs): int(start_time * fs) + template.size] = template
+            signal[int(start_time * fs) : int(start_time * fs) + template.size] = template
         spacer_times = spacer.find_spacers(signal, fs=fs)
         np.testing.assert_allclose(spacer_times, start_times)
 
     def test_find_spacer_from_timestamps(self):
         spacer = Spacer()
-        timestamps = np.random.random(size=100) * 100 # random times
-        start_times = np.random.random(size=2) * 100 # 2 spacers
+        timestamps = np.random.random(size=100) * 100  # random times
+        start_times = np.random.random(size=2) * 100  # 2 spacers
         # make sure there is space for spacer injection
-        ix = np.ones(timestamps.shape[0],dtype='bool')
+        ix = np.ones(timestamps.shape[0], dtype='bool')
         for start_time in start_times:
-            ix[np.logical_and(timestamps > start_time, timestamps < start_time + spacer.times[-1]+1)] = False
+            ix[np.logical_and(timestamps > start_time, timestamps < start_time + spacer.times[-1] + 1)] = False
         timestamps = timestamps[ix]
         for start_time in start_times:
             timestamps = np.concatenate([timestamps, spacer.times + start_time])
         timestamps = np.sort(timestamps)
 
-        true_spacer_ix = np.sort([np.where(timestamps == start_time+spacer.times[0])[0][0] for start_time in start_times])
+        true_spacer_ix = np.sort([np.where(timestamps == start_time + spacer.times[0])[0][0] for start_time in start_times])
 
         # check if spacers are retrieved
         np.testing.assert_equal(spacer.find_spacers_from_timestamps(timestamps), true_spacer_ix)
 
     def test_find_spacer_from_positive_timestamps(self):
         spacer = Spacer()
-        timestamps = np.random.random(size=100) * 100 # random times
-        start_times = np.sort(np.random.random(size=2) * 100) # 2 spacers
+        timestamps = np.random.random(size=100) * 100  # random times
+        start_times = np.sort(np.random.random(size=2) * 100)  # 2 spacers
         # make sure there is space for spacer injection
-        ix = np.ones(timestamps.shape[0],dtype='bool')
+        ix = np.ones(timestamps.shape[0], dtype='bool')
         for start_time in start_times:
-            ix[np.logical_and(timestamps > start_time, timestamps < start_time + spacer.times[-1]+1)] = False
+            ix[np.logical_and(timestamps > start_time, timestamps < start_time + spacer.times[-1] + 1)] = False
         timestamps = timestamps[ix]
         # inject broken spacers (one random timestamp missing)
         for start_time in start_times:
@@ -72,9 +71,10 @@ class TestSpacer(unittest.TestCase):
 
 class TestSpacersFromFronts(unittest.TestCase):
     """Tests for Spacer.find_spacers_from_fronts"""
+
     def setUp(self) -> None:
         self.spacer_1 = Spacer()
-        self.spacer_2 = Spacer(n_pulses=12, tup=.1)
+        self.spacer_2 = Spacer(n_pulses=12, tup=0.1)
 
     def test_extract_spacers(self):
         """Test Spacer.find_spacers_from_fronts with usual spacer"""
@@ -82,7 +82,7 @@ class TestSpacersFromFronts(unittest.TestCase):
         Fs = 1000
         template = self.spacer_1.generate_template(fs=Fs)
         ind, val = self.to_fronts(template)
-        t0 = 15.  # start at 15 seconds
+        t0 = 15.0  # start at 15 seconds
         times = ind * 1 / Fs + t0
         fronts = {'times': times, 'polarities': val}
         t = self.spacer_1.find_spacers_from_fronts(fronts)
@@ -114,15 +114,12 @@ class TestSpacersFromFronts(unittest.TestCase):
         Fs = 1000
         template = self.spacer_1.generate_template(fs=Fs)
         ind, val = self.to_fronts(template)
-        t0 = 15.  # start at 15 seconds
+        t0 = 15.0  # start at 15 seconds
         times = ind * 1 / Fs + t0
 
         # Add some noise to the signal
-        noise_times, noise_p = self._random_pulses(t0, 4, pw=.005, t_max=times[-1] - t0)
-        fronts = {
-            'times': np.sort(np.concatenate([times, noise_times])),
-            'polarities': np.concatenate([val, noise_p])
-        }
+        noise_times, noise_p = self._random_pulses(t0, 4, pw=0.005, t_max=times[-1] - t0)
+        fronts = {'times': np.sort(np.concatenate([times, noise_times])), 'polarities': np.concatenate([val, noise_p])}
 
         t = self.spacer_1.find_spacers_from_fronts(fronts)
         self.assertEqual(0, len(t))  # NB This could one day return 1
@@ -133,21 +130,21 @@ class TestSpacersFromFronts(unittest.TestCase):
         Fs = 1200  # a non-default sampling rate
         template = self.spacer_2.generate_template(fs=Fs)
         ind, val = self.to_fronts(template)
-        t0 = 15.  # start at 15 seconds
+        t0 = 15.0  # start at 15 seconds
         fronts = {'times': ind * 1 / Fs + t0, 'polarities': val}
         t = self.spacer_2.find_spacers_from_fronts(fronts, fs=Fs)
         self.assertEqual(1, len(t))
         np.testing.assert_allclose(t, t0, rtol=1e-3)
 
     @staticmethod
-    def _random_pulses(t0=0., n=50, pw=None, t_max=200):
+    def _random_pulses(t0=0.0, n=50, pw=None, t_max=200):
         if not pw:
             times = np.sort(np.random.randint(0, t_max, n) + np.random.rand(n)) + t0
         else:
             times = np.random.randint(0, t_max, n) + np.random.rand(n) + t0
             times = np.sort(np.concatenate([times, times + pw]))
         polarities = np.ones_like(times)
-        polarities[1::2] = -1.
+        polarities[1::2] = -1.0
         return times, polarities
 
     @staticmethod
