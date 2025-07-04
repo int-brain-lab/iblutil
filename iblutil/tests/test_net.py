@@ -19,6 +19,7 @@ class TestBase(unittest.IsolatedAsyncioTestCase):
 
     NB: This requires internet access.
     """
+
     def test_parse_uri(self):
         """Tests for parse_uri, validate_ip and hostname2ip"""
         expected = 'udp://192.168.0.1:9999'
@@ -273,14 +274,15 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
             self.client.default_echo_timeout = app.EchoProtocol.default_echo_timeout
         # Expect timeout arg to override default echo timeout, expect error raised on timeout
         assert self.client.is_connected
-        with mock.patch('iblutil.io.net.app.asyncio.wait_for', side_effect=asyncio.TimeoutError) as m, \
-                self.assertRaises(TimeoutError):
+        with (
+            mock.patch('iblutil.io.net.app.asyncio.wait_for', side_effect=asyncio.TimeoutError) as m,
+            self.assertRaises(TimeoutError),
+        ):
             await self.client.confirmed_send(None, timeout=0.2)
             self.assertFalse(self.client.is_connected, 'failed to close communicator on echo timeout error')
         m.assert_awaited_once_with(mock.ANY, timeout=0.2)
         # Expect to raise RuntimeError with explanation when messages don't match
-        with mock.patch('iblutil.io.net.app.asyncio.wait_for', side_effect=RuntimeError), \
-                self.assertRaises(RuntimeError) as cm:
+        with mock.patch('iblutil.io.net.app.asyncio.wait_for', side_effect=RuntimeError), self.assertRaises(RuntimeError) as cm:
             await self.client.confirmed_send(None)
         self.assertIn('unexpected response', str(cm.exception).lower())
 
@@ -305,8 +307,7 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
             self.client._receive(b'bar', addr)
         self.assertIsInstance(fut.exception(), RuntimeError)
         # Upon receiving message from unknown host, should log warning and return
-        with self.assertLogs(self.client.name, logging.WARNING), \
-                mock.patch.object(self.client, '_receive') as receive_mock:
+        with self.assertLogs(self.client.name, logging.WARNING), mock.patch.object(self.client, '_receive') as receive_mock:
             self.client.datagram_received(b'foo', ('192.168.0.0', self.server.port))
             receive_mock.assert_not_called()
         # Additionally we test the behaviour when no callbacks are assigned
@@ -382,6 +383,7 @@ class TestUDP(unittest.IsolatedAsyncioTestCase):
 
 class TestWebSockets(unittest.IsolatedAsyncioTestCase):
     """Test net.app.EchoProtocol with a TCP/IP transport layer"""
+
     port = 18888
 
     async def asyncSetUp(self):
@@ -518,7 +520,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         async def respond(server, fut):
             """Response callback for the server"""
             data, addr = await fut
-            await asyncio.sleep(.1)  # FIXME Should be able to somehow use loop.call_soon
+            await asyncio.sleep(0.1)  # FIXME Should be able to somehow use loop.call_soon
             await server.init(42, addr)
 
         for server in servers:
@@ -614,6 +616,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     from iblutil.util import setup_logger
+
     setup_logger(app.__name__, level=logging.DEBUG)
 
     unittest.main()

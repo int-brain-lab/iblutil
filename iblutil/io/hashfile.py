@@ -2,13 +2,14 @@
 Uses hashlib to perform either md5 or sha1 hashing in a memory controlled manner,
 with a progress bar for larger files.
 """
+
 import hashlib
 from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
 
-BUF_SIZE = 2 ** 28  # 256 megs
+BUF_SIZE = 2**28  # 256 megs
 
 
 def blake2b(file_path, *args, **kwargs):

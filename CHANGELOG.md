@@ -3,6 +3,12 @@
 * Minor releases (X.1.X) are new features such as added functions or small changes that don't cause major compatibility issues.
 * Major releases (1.X.X) are major new features or changes that break backward compatibility in a big way.
 
+##  [1.19.1]
+
+### Fixed
+
+- iblutil.random.sillyname: a way to create a deterministic low-collision name with a hash or an int
+
 ##  [1.19.0]
 
 ### Added
