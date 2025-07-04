@@ -1,3 +1,4 @@
+import hashlib
 import random
 
 ANIMALS = [
@@ -158,9 +159,30 @@ ADJECTIVES = [
 
 
 def sillyname():
+    """
+    Generate a human readable name by combining a random adjective, a random colour, and a random animal.
+    There are 87_623_250 possible combinations
+
+    :return: str: A silly name.
+    """
     name = f'{random.choice(ADJECTIVES)}-{random.choice(COLOURS)}-{random.choice(ANIMALS)}'
     return name
 
-print(sillyname())
+
+def name_from_int(number: int):
+    """
+    Generate a human readable name by converting a hash value into an integer, then mapping it to a random index in the list of names.
+    There are 87_623_250 possible combinations
+
+    :param number: int: integer - will be capped to the maximum value.
+    :return: str: A 3 words name.
+    """
+    int_value = number % (len(ADJECTIVES) * len(COLOURS) * len(ANIMALS))
+    ia = int_value // (len(COLOURS) * len(ANIMALS))
+    ib = (int_value % (len(COLOURS) * len(ANIMALS))) // len(ANIMALS)
+    ic = int_value % len(ANIMALS)
+    return f'{ADJECTIVES[ia]}-{COLOURS[ib]}-{ANIMALS[ic]}'
 
 
+def name_from_hash(hash):
+    return name_from_int(int(hash.hexdigest(), 16))
