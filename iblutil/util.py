@@ -13,14 +13,9 @@ import numpy as np
 
 log = logging.getLogger('__name__')
 
-LOG_FORMAT_STR = u'%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
+LOG_FORMAT_STR = '%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-LOG_COLORS = {
-    'DEBUG': 'green',
-    'INFO': 'cyan',
-    'WARNING': 'bold_yellow',
-    'ERROR': 'bold_red',
-    'CRITICAL': 'bold_purple'}
+LOG_COLORS = {'DEBUG': 'green', 'INFO': 'cyan', 'WARNING': 'bold_yellow', 'ERROR': 'bold_red', 'CRITICAL': 'bold_purple'}
 
 
 def Listable(t):
@@ -79,15 +74,14 @@ class Bunch(dict):
         :return: Bunch
         """
         if not Path(npz_file).exists():
-            raise FileNotFoundError(f"{npz_file}")
+            raise FileNotFoundError(f'{npz_file}')
         return Bunch(np.load(npz_file))
 
 
 def _iflatten(x):
     result = []
     for el in x:
-        if isinstance(el, collections.abc.Iterable) and not (
-                isinstance(el, str) or isinstance(el, dict)):
+        if isinstance(el, collections.abc.Iterable) and not (isinstance(el, str) or isinstance(el, dict)):
             result.extend(_iflatten(el))
         else:
             result.append(el)
@@ -96,8 +90,8 @@ def _iflatten(x):
 
 def _gflatten(x):
     def iselement(e):
-        return not (isinstance(e, collections.abc.Iterable) and not (
-            isinstance(el, str) or isinstance(el, dict)))
+        return not (isinstance(e, collections.abc.Iterable) and not (isinstance(el, str) or isinstance(el, dict)))
+
     for el in x:
         if iselement(el):
             yield el
@@ -142,7 +136,7 @@ def range_str(values: iter) -> str:
     # Replace final comma with an ampersand
     k = trial_str.rfind(',')
     if k > -1:
-        trial_str = f'{trial_str[:k]} &{trial_str[k + 1:]}'
+        trial_str = f'{trial_str[:k]} &{trial_str[k + 1 :]}'
     return trial_str
 
 
@@ -182,9 +176,7 @@ def setup_logger(name='ibl', level=logging.NOTSET, file=None, no_color=False):
             if isinstance(h, logging.StreamHandler) and h.stream.name == '<stderr>' and h.level == 0 and h.name is None:
                 log.removeHandler(h)
         stream_handler = logging.StreamHandler(stream=sys.stdout)
-        stream_handler.setFormatter(
-            colorlog.ColoredFormatter('%(log_color)s' + LOG_FORMAT_STR,
-                                      LOG_DATE_FORMAT, **fkwargs))
+        stream_handler.setFormatter(colorlog.ColoredFormatter('%(log_color)s' + LOG_FORMAT_STR, LOG_DATE_FORMAT, **fkwargs))
         stream_handler.name = f'{name}_auto'
         log.addHandler(stream_handler)
     # add the file handler if requested, but check for duplicates

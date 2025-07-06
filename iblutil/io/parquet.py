@@ -41,18 +41,14 @@ def save(filename, table, metadata=None):
     table = pa.Table.from_pandas(table)
 
     # Add user metadata
-    table = table.replace_schema_metadata({
-        'one_metadata': json.dumps(metadata or {}).encode(),
-        **table.schema.metadata
-    })
+    table = table.replace_schema_metadata({'one_metadata': json.dumps(metadata or {}).encode(), **table.schema.metadata})
 
     # Save to parquet.
     pq.write_table(table, filename)
 
 
 def uuid2np(eids_uuid):
-    return np.asfortranarray(
-        np.array([np.frombuffer(eid.bytes, dtype=np.int64) for eid in eids_uuid]))
+    return np.asfortranarray(np.array([np.frombuffer(eid.bytes, dtype=np.int64) for eid in eids_uuid]))
 
 
 def str2np(eids_str):

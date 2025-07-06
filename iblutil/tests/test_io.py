@@ -18,7 +18,6 @@ from iblutil.numerical import intersect2d, ismember2d, ismember
 
 
 class TestBinary(unittest.TestCase):
-
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.temp_dir_path = Path(self.temp_dir.name)
@@ -133,7 +132,6 @@ class TestBinary(unittest.TestCase):
 
 
 class TestParquet(unittest.TestCase):
-
     def test_uuids_conversions(self):
         str_uuid = 'a3df91c8-52a6-4afa-957b-3479a7d0897c'
         one_np_uuid = np.array([-411333541468446813, 8973933150224022421])
@@ -143,8 +141,12 @@ class TestParquet(unittest.TestCase):
         # single uuid gives a string
         self.assertTrue(np2str(one_np_uuid) == str_uuid)
         # list uuids with some None entries
-        uuid_list = ['bc74f49f33ec0f7545ebc03f0490bdf6', 'c5779e6d02ae6d1d6772df40a1a94243',
-                     None, '643371c81724378d34e04a60ef8769f4']
+        uuid_list = [
+            'bc74f49f33ec0f7545ebc03f0490bdf6',
+            'c5779e6d02ae6d1d6772df40a1a94243',
+            None,
+            '643371c81724378d34e04a60ef8769f4',
+        ]
         assert np.all(str2np(uuid_list)[2, :] == 0)
 
     def test_uuids_intersections(self):
@@ -179,7 +181,6 @@ class TestParquet(unittest.TestCase):
 
 
 class TestParams(unittest.TestCase):
-
     @mock.patch('sys.platform', 'linux')
     def test_set_hidden(self):
         with tempfile.TemporaryDirectory() as td:
@@ -241,8 +242,7 @@ class TestFileLock(unittest.IsolatedAsyncioTestCase):
 
         # Check delete timeout action
         assert self.lock_file.exists()
-        with self.assertLogs('iblutil.io.params', 10) as lg, \
-                params.FileLock(self.file, timeout_action='delete'):
+        with self.assertLogs('iblutil.io.params', 10) as lg, params.FileLock(self.file, timeout_action='delete'):
             # Should have replaced empty lock file with timestamped one
             self.assertTrue(self.lock_file.exists())
             with open(self.lock_file, 'r') as fp:
@@ -323,8 +323,7 @@ class TestsJsonable(unittest.TestCase):
         self.tfile = tempfile.NamedTemporaryFile(delete=False)
 
     def testReadWrite(self):
-        data = [{'a': 'thisisa', 'b': 1, 'c': [1, 2, 3]},
-                {'a': 'thisisb', 'b': 2, 'c': [2, 3, 4]}]
+        data = [{'a': 'thisisa', 'b': 1, 'c': [1, 2, 3]}, {'a': 'thisisb', 'b': 2, 'c': [2, 3, 4]}]
         jsonable.write(self.tfile.name, data)
         data2 = jsonable.read(self.tfile.name)
         self.assertEqual(data, data2)

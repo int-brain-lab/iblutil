@@ -13,6 +13,7 @@ Examples
 ... except asyncio.TimeoutError:
 ...     server.close()
 """
+
 import sys
 import json
 import urllib.parse
@@ -38,8 +39,7 @@ def _setup_log(name, level=logging.DEBUG):
     log.handlers = []
     fmt_str = '%(log_color)s%(asctime)s [%(name)s] %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
     stream_handler = logging.StreamHandler(stream=sys.stdout)
-    stream_handler.setFormatter(
-        colorlog.ColoredFormatter(fmt_str, util.LOG_DATE_FORMAT, log_colors=util.LOG_COLORS))
+    stream_handler.setFormatter(colorlog.ColoredFormatter(fmt_str, util.LOG_DATE_FORMAT, log_colors=util.LOG_COLORS))
     stream_handler.name = f'{name}_auto'
     stream_handler.setLevel(level)
     log.addHandler(stream_handler)
@@ -92,7 +92,7 @@ class EchoProtocol(base.Communicator):
 
     Server = None
     _role = None
-    default_echo_timeout = 1.
+    default_echo_timeout = 1.0
     max_message_size = 65535
     """int: Maximum message size expected.  Defaults to maximum theoretical message size for UDP."""
 
@@ -133,7 +133,7 @@ class EchoProtocol(base.Communicator):
             The role must be one of {'client', 'server'}.
         """
         if self._role is not None:
-            raise AttributeError('can\'t set attribute')
+            raise AttributeError("can't set attribute")
         if (value or '').strip().lower() not in ('server', 'client'):
             raise ValueError('role must be either "server" or "client"')
         self._role = value.strip().lower()
@@ -362,7 +362,7 @@ class EchoProtocol(base.Communicator):
         """
         if self.role == 'server':
             if not addr:
-                raise TypeError('confirmed_send missing 1 required argument: \'addr\'')
+                raise TypeError("confirmed_send missing 1 required argument: 'addr'")
         elif addr and addr != (self.hostname, self.port):
             raise ValueError('Unexpected remote address')
         addr = addr or (self.hostname, self.port)
@@ -458,9 +458,14 @@ class EchoProtocol(base.Communicator):
             expected, echo_future = last_sent
             # If echo doesn't match, raise exception
             matches = data == expected
-            if not matches and len(data) == self.max_message_size and data == expected[:self.max_message_size]:
-                self.logger.warning('Received truncated echo from %s://%s:%i; original message > %i bytes',
-                                    self.protocol, host, port, self.max_message_size)
+            if not matches and len(data) == self.max_message_size and data == expected[: self.max_message_size]:
+                self.logger.warning(
+                    'Received truncated echo from %s://%s:%i; original message > %i bytes',
+                    self.protocol,
+                    host,
+                    port,
+                    self.max_message_size,
+                )
                 matches = True
             if not matches:
                 self.logger.error('Expected %s from %s, got %s', expected, self.name, data)
@@ -480,8 +485,7 @@ class EchoProtocol(base.Communicator):
         """Called by UDP transport layer"""
         host, port = addr[:2]
         if self.role == 'client' and host != self.hostname:
-            self.logger.warning(
-                f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{data}"')
+            self.logger.warning(f'Ignoring UDP packet from unexpected host ({host}:{port}) with message "{data}"')
         else:
             self._receive(data, addr)
 
@@ -587,9 +591,10 @@ class EchoProtocol(base.Communicator):
 
 class Services(base.Service, UserDict):
     """Handler for multiple remote rig services."""
+
     __slots__ = ('timeout', 'server')
 
-    def __init__(self, remote_rigs, timeout=10.):
+    def __init__(self, remote_rigs, timeout=10.0):
         """Handler for multiple remote rig services.
 
         Parameters
@@ -624,6 +629,7 @@ class Services(base.Service, UserDict):
         return_service : bool
             When True an instance of the Communicator is additionally passed to the callback.
         """
+
         def _callback(service, data, addr):
             callback(data, addr, service)
 
@@ -681,13 +687,10 @@ class Services(base.Service, UserDict):
             tasks.add(task)
 
         if self.timeout:  # py3.11 with asyncio.timeout context manager
-            _, pending = await asyncio.wait(
-                tasks, timeout=self.timeout, return_when=asyncio.ALL_COMPLETED
-            )
+            _, pending = await asyncio.wait(tasks, timeout=self.timeout, return_when=asyncio.ALL_COMPLETED)
             if any(pending):
                 failed = set(self.keys()).difference(responses.keys())
-                raise asyncio.TimeoutError(
-                    f'The following services failed to respond in time: {failed}')
+                raise asyncio.TimeoutError(f'The following services failed to respond in time: {failed}')
         else:
             await asyncio.gather(*tasks)
 
@@ -887,13 +890,13 @@ class Services(base.Service, UserDict):
             # Register event callbacks before sending messages otherwise we may receive a response before callback is
             # created.
             all_responses = asyncio.create_task(self.await_all(event), name='service responses')
-            for service in (reversed(list(self.values())) if reverse else self.values()):
+            for service in reversed(list(self.values())) if reverse else self.values():
                 f = getattr(service, method or event.name.lower())
                 await f(*args, **kwargs)
             responses = await all_responses
         else:
             responses = dict.fromkeys(self.keys())
-            for name, service in (reversed(list(self.items())) if reverse else self.items()):
+            for name, service in reversed(list(self.items())) if reverse else self.items():
                 f = getattr(service, method or event.name.lower())
                 await f(*args, **kwargs)
                 if self.timeout:
@@ -956,8 +959,7 @@ if __name__ == '__main__':
     """
     # Parse parameters
     parser = argparse.ArgumentParser(description='UDP Experiment Communicator.')
-    parser.add_argument('role', choices=('server', 'client'),
-                        help='communicator role i.e. server or client')
+    parser.add_argument('role', choices=('server', 'client'), help='communicator role i.e. server or client')
     parser.add_argument('--host', '-H', help='the host address', default=base.hostname2ip())
     parser.add_argument('--verbose', '-v', action='count', default=0)
     args = parser.parse_args()  # returns data from the options specified
