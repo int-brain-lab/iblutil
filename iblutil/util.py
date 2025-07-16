@@ -16,6 +16,7 @@ log = logging.getLogger('__name__')
 LOG_FORMAT_STR = '%(asctime)s %(levelname)-8s %(filename)s:%(lineno)-4d %(message)s'
 LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 LOG_COLORS = {'DEBUG': 'green', 'INFO': 'cyan', 'WARNING': 'bold_yellow', 'ERROR': 'bold_red', 'CRITICAL': 'bold_purple'}
+SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
 
 
 def Listable(t):
@@ -281,6 +282,38 @@ def dir_size(directory: str | Path, follow_symlinks: bool = False) -> int:
             elif entry.is_file():
                 total_bytes += entry.stat().st_size
     return total_bytes
+
+
+def format_bytes(size_bytes: int, decimals: int = 1) -> str:
+    """
+    Convert a size in bytes into a human-readable string using binary units.
+
+    The function scales the input size using powers of 1024, returning a
+    formatted string with the appropriate unit (e.g., B, KB, MB, ...).
+
+    Parameters
+    ----------
+    size_bytes : int
+        The size in bytes to convert.
+    decimals : int, optional
+        The number of decimal places for units KB and above. Defaults to 1.
+
+    Returns
+    -------
+    str
+        The human-readable string representation of the size.
+    """
+    scaled_size = size_bytes
+    for exponent, unit in enumerate(SIZE_UNITS):
+        if scaled_size < 1024:
+            break
+        scaled_size >>= 10
+    else:
+        exponent = len(SIZE_UNITS) - 1
+        unit = SIZE_UNITS[exponent]
+    value = size_bytes / (1024**exponent)
+    fmt = f'{{:.{decimals}f}} ' if exponent > 0 else '{:.0f} '
+    return fmt.format(value) + unit
 
 
 def get_mac() -> str:
