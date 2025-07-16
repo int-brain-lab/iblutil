@@ -236,5 +236,29 @@ class TestListable(unittest.TestCase):
         self.assertIs(listable, typing.Union[dict, typing.Sequence[dict]])
 
 
+class TestFormatBytes(unittest.TestCase):
+    def test_zero(self):
+        self.assertEqual(util.format_bytes(0), '0 B')
+
+    def test_bytes(self):
+        self.assertEqual(util.format_bytes(500), '500 B')
+        self.assertEqual(util.format_bytes(1023), '1023 B')
+
+    def test_kilobytes(self):
+        self.assertEqual(util.format_bytes(1024), '1.0 KB')
+        self.assertEqual(util.format_bytes(1536), '1.5 KB')
+        self.assertEqual(util.format_bytes(10 * 1024), '10.0 KB')
+        self.assertEqual(util.format_bytes(1024 ** 2 - 1), '1024.0 KB')
+
+    def test_decimals(self):
+        self.assertEqual(util.format_bytes(1536, decimals=2), '1.50 KB')
+        self.assertEqual(util.format_bytes(1536, decimals=0), '2 KB')
+
+    def test_large_value(self):
+        n_bytes = 1024 ** len(util.SIZE_UNITS)
+        self.assertEqual(util.format_bytes(n_bytes), f'1024.0 {util.SIZE_UNITS[-1]}')
+        self.assertEqual(util.format_bytes(n_bytes * 2), f'2048.0 {util.SIZE_UNITS[-1]}')
+
+
 if __name__ == '__main__':
     unittest.main(exit=False)
